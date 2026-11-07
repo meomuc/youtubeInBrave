@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -43,6 +44,11 @@ class MainActivity : Activity() {
                 // thay vì hiện trang lỗi ERR_UNKNOWN_URL_SCHEME.
                 val scheme = request.url.scheme
                 return scheme != "http" && scheme != "https"
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                // Chỉ báo lỗi khi chính trang chính thất bại; lỗi ảnh/script thì để trang tự xử lý.
+                if (request.isForMainFrame) showOfflinePage()
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -86,6 +92,11 @@ class MainActivity : Activity() {
         if (hasFocus) applyImmersiveMode()
     }
 
+    /** Trang thông báo mất mạng; liên kết "thử lại" tải lại youtube.com. */
+    private fun showOfflinePage() {
+        webView.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null)
+    }
+
     private fun hideCustomView() {
         val view = customView ?: return
         root.removeView(view)
@@ -111,5 +122,10 @@ class MainActivity : Activity() {
     private companion object {
         const val START_URL = "https://www.youtube.com/"
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+        const val OFFLINE_HTML = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:sans-serif;text-align:center;padding:48px;color:#222">
+<h2>Không có kết nối mạng</h2>
+<p>Kiểm tra Wi-Fi hoặc dữ liệu di động, rồi <a href="https://www.youtube.com/">thử lại</a>.</p>
+</body></html>"""
     }
 }
