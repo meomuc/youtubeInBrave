@@ -50,6 +50,9 @@ class PlayQueue(initial: List<QueueItem> = emptyList()) {
     /** Lấy và bỏ mục đầu hàng đợi; hàng đợi rỗng thì trả null. */
     fun pollHead(): QueueItem? = if (list.isEmpty()) null else list.removeAt(0)
 
+    /** Xem mục đầu mà không bỏ; dùng khi mục chưa tải xong để mất mạng không làm mất mục (ticket #17). */
+    fun peekHead(): QueueItem? = list.firstOrNull()
+
     /**
      * Quyết định khi một video kết thúc (ticket #14). Hàng đợi tắt thì không đụng tới danh sách và trả null.
      * Hàng đợi bật thì lấy mục đầu để phát; hết mục thì trả null, nghĩa là dừng.

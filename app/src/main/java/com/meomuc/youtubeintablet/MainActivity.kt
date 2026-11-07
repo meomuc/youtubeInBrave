@@ -54,6 +54,8 @@ import java.util.Locale
  * Ticket #18: mất audio focus (cuộc gọi, app khác) thì tạm dừng; không tự phát lại.
  * Ticket #13: hàng đợi cục bộ (PlayQueue) lưu trong SharedPreferences; nút "Thêm vào hàng đợi" trên trang xem video.
  * Ticket #14: video kết thúc khi hàng đợi bật thì phát mục tiếp theo, hết thì dừng (PlayQueue.takeNextOnEnd).
+ * Ticket #17: video không truy cập được thì bỏ qua sang mục tiếp theo, hoặc về trang chủ nếu là lời nhắc xem dở;
+ * mất mạng giữ vị trí và hàng đợi, trang lỗi có liên kết thử lại đúng trang đang lỗi (PlaybackErrorRules).
  */
 class MainActivity : Activity() {
 
@@ -80,6 +82,8 @@ class MainActivity : Activity() {
 
     /** Video vừa bấm "Tiếp tục": cần tua tới vị trí này khi trang watch tải xong. */
     @Volatile private var pendingResume: ResumePoint? = null
+    /** Id video đang được tải từ hàng đợi; chỉ bỏ mục khỏi hàng đợi khi trang tải xong (ticket #17). */
+    private var queueLoadingId: String? = null
     /** Engine chặn quảng cáo (ADR 0004); null cho tới khi nạp xong danh sách lọc. */
     @Volatile private var adEngine: AdEngine? = null
 
@@ -152,12 +156,15 @@ class MainActivity : Activity() {
                     view.evaluateJavascript(QUEUE_BAR_JS, null)
                     applyDisplayFilter()
                     seekPendingResume(view, url)
+                    completeQueueLoad(url)
                 }
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 // Chỉ báo lỗi khi chính trang chính thất bại; lỗi ảnh/script thì để trang tự xử lý.
-                if (request.isForMainFrame) showOfflinePage()
+                if (request.isForMainFrame) {
+                    onMainFrameFailed(request.url.toString(), PlaybackErrorRules.isNetworkError(error.errorCode))
+                }
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -352,9 +359,48 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Trang thông báo mất mạng; liên kết "thử lại" tải lại youtube.com. */
-    private fun showOfflinePage() {
-        webView.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null)
+    /**
+     * Trang chính lỗi. Mất mạng: giữ vị trí (tua lại theo lời nhắc đã lưu nếu đúng video) và hàng đợi,
+     * trang lỗi có nút thử lại tới đúng URL vừa lỗi. Lỗi chưa rõ: cũng giữ trạng thái và cho thử lại.
+     */
+    private fun onMainFrameFailed(failedUrl: String, network: Boolean) {
+        val retryUrl = if (failedUrl.startsWith("https://") || failedUrl.startsWith("http://")) failedUrl else START_URL
+        val failedId = Uri.parse(retryUrl).getQueryParameter("v")
+        resumeStore.load()?.takeIf { it.videoId == failedId }?.let { pendingResume = it }
+        webView.loadDataWithBaseURL(null, offlineHtml(retryUrl, network), "text/html", "UTF-8", null)
+    }
+
+    /** Đánh dấu mục hàng đợi đã tải xong: lúc này mới bỏ khỏi hàng đợi (ticket #17). */
+    private fun completeQueueLoad(url: String) {
+        val loadingId = queueLoadingId ?: return
+        val uri = Uri.parse(url)
+        if (uri.path != "/watch" || uri.getQueryParameter("v") != loadingId) return
+        queueLoadingId = null
+        if (queue.peekHead()?.videoId == loadingId) {
+            queue.pollHead()
+            onQueueChanged()
+        }
+    }
+
+    /** Video không truy cập được (ticket #17): thông báo ngắn rồi bỏ qua hoặc về trang chủ. Gọi từ luồng WebView. */
+    private fun handleUnavailable(videoId: String) {
+        if (!isValidVideoId(videoId)) return
+        val isResume = resumeStore.load()?.videoId == videoId || pendingResume?.videoId == videoId
+        when (PlaybackErrorRules.decideOnUnavailable(isResume, displayOptions.showQueue, !queue.isEmpty)) {
+            UnavailableAction.GO_HOME -> {
+                resumeStore.clearIf(videoId)
+                pendingResume = null
+                Toast.makeText(this, "Video đang xem dở không khả dụng, về trang chủ", Toast.LENGTH_SHORT).show()
+                webView.loadUrl(START_URL)
+            }
+            UnavailableAction.SKIP_TO_NEXT -> {
+                Toast.makeText(this, "Video không khả dụng, chuyển mục tiếp theo", Toast.LENGTH_SHORT).show()
+                playNextFromQueue()
+            }
+            UnavailableAction.STAY -> {
+                Toast.makeText(this, "Video không khả dụng", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     /** Thanh nhắc "Xem dở: tên video" với nút Tiếp tục và Bỏ qua (ticket #16). */
@@ -442,12 +488,26 @@ class MainActivity : Activity() {
         fun onQueueEnded() {
             runOnUiThread { playNextFromQueue() }
         }
+
+        /**
+         * Trình phát báo lỗi (ticket #17). [text] là thông báo nguyên văn; chỉ thông báo nội dung mới xử lý,
+         * lỗi chưa rõ thì giữ trạng thái.
+         */
+        @JavascriptInterface
+        fun onUnavailable(videoId: String?, text: String?) {
+            if (videoId == null || !PlaybackErrorRules.isUnavailableText(text)) return
+            runOnUiThread { handleUnavailable(videoId) }
+        }
     }
 
-    /** Phát mục đầu hàng đợi sau khi video kết thúc; hết mục thì dừng (ticket #14). */
+    /**
+     * Phát mục đầu hàng đợi sau khi video kết thúc hoặc bị bỏ qua; hết mục thì dừng (ticket #14).
+     * Mục chỉ bị bỏ khỏi hàng đợi khi trang tải xong (completeQueueLoad), để mất mạng không làm mất mục.
+     */
     private fun playNextFromQueue() {
-        val next = queue.takeNextOnEnd(queueOn = displayOptions.showQueue) ?: return
-        onQueueChanged()
+        if (!displayOptions.showQueue) return
+        val next = queue.peekHead() ?: return
+        queueLoadingId = next.videoId
         webView.loadUrl("https://www.youtube.com/watch?v=${next.videoId}")
     }
 
@@ -637,6 +697,18 @@ class MainActivity : Activity() {
   }, true);
   // Video mới bắt đầu phát thì cho phép báo kết thúc lần nữa.
   window.addEventListener('play', function(){ window.__ytTabletEndSent = false; }, true);
+  // Ticket #17: trình phát hiện lỗi (ví dụ .ytp-error). Gửi nguyên văn thông báo; app chỉ xử lý lỗi nội dung.
+  // Bỏ qua khi máy mất mạng để không nhầm lỗi kết nối với video không khả dụng. Selector này là giả định, chưa kiểm chứng.
+  var reportedErrorId = null;
+  setInterval(function(){
+    if (location.pathname !== '/watch' || navigator.onLine === false) return;
+    var id = currentVideoId();
+    var err = document.querySelector('.ytp-error');
+    if (!id || !err || err.getClientRects().length === 0) return;
+    if (reportedErrorId === id) return;
+    reportedErrorId = id;
+    AndroidPlayback.onUnavailable(id, (err.textContent || '').trim());
+  }, 2000);
 })();"""
 
         /**
@@ -656,10 +728,16 @@ class MainActivity : Activity() {
         val BANNER_BG: Int = 0xEE222222.toInt()
         const val BANNER_PADDING = 32
 
-        const val OFFLINE_HTML = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+        /** Trang lỗi chính; [retryUrl] là URL vừa lỗi để "thử lại" quay về đúng mục (ticket #17). */
+        fun offlineHtml(retryUrl: String, network: Boolean): String {
+            val title = if (network) "Không có kết nối mạng" else "Không tải được trang"
+            val hint = if (network) "Kiểm tra Wi-Fi hoặc dữ liệu di động" else "Trang gặp lỗi không rõ nguyên nhân"
+            val href = TextUtils.htmlEncode(retryUrl)
+            return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:sans-serif;text-align:center;padding:48px;color:#222">
-<h2>Không có kết nối mạng</h2>
-<p>Kiểm tra Wi-Fi hoặc dữ liệu di động, rồi <a href="https://www.youtube.com/">thử lại</a>.</p>
+<h2>$title</h2>
+<p>$hint, rồi <a href="$href">thử lại</a>.</p>
 </body></html>"""
+        }
     }
 }
