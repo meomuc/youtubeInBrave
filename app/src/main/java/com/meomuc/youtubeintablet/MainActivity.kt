@@ -51,6 +51,8 @@ class MainActivity : Activity() {
     /** Nút ☰ góc dưới bên trái mở bảng hiển thị nhanh (ticket #10). */
     private lateinit var menuButton: ImageButton
     private lateinit var quickPanel: QuickPanel
+    /** Lựa chọn hiển thị hiện tại; đọc từ SharedPreferences khi mở app (ticket #10). */
+    private var displayOptions = DisplayOptions()
     /** Engine chặn quảng cáo (ADR 0004); null cho tới khi nạp xong danh sách lọc. */
     @Volatile private var adEngine: AdEngine? = null
 
@@ -117,6 +119,7 @@ class MainActivity : Activity() {
                 // Chỉ gắn hook phát nền cho YouTube, không cho trang bên thứ ba.
                 if (Uri.parse(url).host?.endsWith("youtube.com") == true) {
                     view.evaluateJavascript(PLAYBACK_HOOK_JS, null)
+                    applyDisplayFilter()
                 }
             }
 
@@ -158,10 +161,11 @@ class MainActivity : Activity() {
         )
         // Bảng hiển thị nhanh (ticket #10): lựa chọn lưu trong SharedPreferences.
         val prefs = getSharedPreferences(PREFS_DISPLAY, MODE_PRIVATE)
-        quickPanel = QuickPanel(this, DisplayOptions.fromStore { key, default ->
-            prefs.getBoolean(key, default)
-        }) { options ->
+        displayOptions = DisplayOptions.fromStore { key, default -> prefs.getBoolean(key, default) }
+        quickPanel = QuickPanel(this, displayOptions) { options ->
+            displayOptions = options
             prefs.edit().apply { options.writeTo { key, value -> putBoolean(key, value) } }.apply()
+            applyDisplayFilter()
         }
         menuButton = ImageButton(this).apply {
             setImageResource(R.drawable.ic_menu)
@@ -248,6 +252,11 @@ class MainActivity : Activity() {
         adEngine?.close()
         adEngine = null
         super.onDestroy()
+    }
+
+    /** Áp bộ lọc giao diện theo [displayOptions] vào trang YouTube (ticket #11, #12). */
+    private fun applyDisplayFilter() {
+        webView.evaluateJavascript(DisplayFilter.applyJs(displayOptions), null)
     }
 
     /** Trang thông báo mất mạng; liên kết "thử lại" tải lại youtube.com. */
