@@ -6,6 +6,16 @@ import java.net.URLEncoder
 /** Một mục hàng đợi: id video YouTube và tiêu đề để hiển thị (ticket #13). */
 data class QueueItem(val videoId: String, val title: String)
 
+/**
+ * Vị trí đích khi kéo một mục (ticket #15): dịch chuyển theo số dòng đã vượt qua, kẹp trong danh sách.
+ * Chiều cao dòng không hợp lệ (<= 0) thì giữ nguyên vị trí.
+ */
+fun dropTargetIndex(from: Int, offsetPx: Float, rowHeightPx: Float, count: Int): Int {
+    if (rowHeightPx <= 0f || count <= 0) return from
+    val rows = Math.round(offsetPx / rowHeightPx)
+    return (from + rows).coerceIn(0, count - 1)
+}
+
 /** Id video YouTube gồm đúng 11 ký tự chữ, số, `_` hoặc `-`. Dùng để kiểm tra dữ liệu từ trang web. */
 fun isValidVideoId(id: String): Boolean = VIDEO_ID_REGEX.matches(id)
 

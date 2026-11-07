@@ -3,6 +3,7 @@ package com.meomuc.youtubeintablet
 import android.content.Context
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -101,17 +102,73 @@ class QueuePanel(
             setOnClickListener {
                 queue.playNext(item)
                 onChanged()
-                render()
             }
+        }
+        val remove = Button(context).apply {
+            text = "Xóa"
+            contentDescription = "Xóa khỏi hàng đợi: ${item.title.ifBlank { item.videoId }}"
+            setOnClickListener {
+                queue.removeAt(index)
+                onChanged()
+            }
+        }
+        // Tay cầm kéo đổi thứ tự (ticket #15). Chạm xuống thì ngăn ScrollView cuộn.
+        val handle = TextView(context).apply {
+            text = "Kéo"
+            contentDescription = "Kéo để đổi thứ tự"
+            setTextColor(HINT_COLOR)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setOnTouchListener { v, event -> onHandleTouch(v, event, index) }
         }
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(8), 0, dp(8))
             addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(handle)
             addView(playNext)
+            addView(remove)
         }
     }
+
+    /** Kéo dòng [index]: dòng đi theo ngón tay, thả xuống thì đổi vị trí trong [queue]. */
+    private fun onHandleTouch(handle: View, event: MotionEvent, index: Int): Boolean {
+        val row = handle.parent as? View ?: return false
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                dragStartY = event.rawY
+                row.parent?.requestDisallowInterceptTouchEvent(true)
+                row.alpha = DRAG_ALPHA
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                row.translationY = event.rawY - dragStartY
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val target = dropTargetIndex(
+                    from = index,
+                    offsetPx = event.rawY - dragStartY,
+                    rowHeightPx = row.height.toFloat(),
+                    count = queue.items.size,
+                )
+                row.translationY = 0f
+                row.alpha = 1f
+                if (event.actionMasked == MotionEvent.ACTION_UP && target != index) {
+                    queue.move(index, target)
+                    onChanged()
+                } else {
+                    render()
+                }
+                return true
+            }
+        }
+        return false
+    }
+
+    /** Tọa độ Y tuyệt đối lúc bắt đầu kéo. */
+    private var dragStartY = 0f
 
     private fun dp(value: Int): Int =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value.toFloat(), resources.displayMetrics).toInt()
@@ -121,5 +178,6 @@ class QueuePanel(
         const val CARD_COLOR = 0xFFFFFFFF.toInt()
         const val TEXT_COLOR = 0xFF222222.toInt()
         const val HINT_COLOR = 0xFF666666.toInt()
+        const val DRAG_ALPHA = 0.7f
     }
 }

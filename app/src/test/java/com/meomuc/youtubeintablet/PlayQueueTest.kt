@@ -94,6 +94,20 @@ class PlayQueueTest {
     }
 
     @Test
+    fun dropTargetIndexFollowsRowsCrossed() {
+        assertEquals(2, dropTargetIndex(from = 0, offsetPx = 130f, rowHeightPx = 60f, count = 5))
+        assertEquals(1, dropTargetIndex(from = 3, offsetPx = -120f, rowHeightPx = 60f, count = 5))
+        assertEquals(3, dropTargetIndex(from = 3, offsetPx = 10f, rowHeightPx = 60f, count = 5))
+    }
+
+    @Test
+    fun dropTargetIndexIsClampedToList() {
+        assertEquals(0, dropTargetIndex(from = 1, offsetPx = -500f, rowHeightPx = 60f, count = 3))
+        assertEquals(2, dropTargetIndex(from = 1, offsetPx = 500f, rowHeightPx = 60f, count = 3))
+        assertEquals(2, dropTargetIndex(from = 2, offsetPx = 100f, rowHeightPx = 0f, count = 5))
+    }
+
+    @Test
     fun endOfVideoWithQueueOffDoesNotTouchQueue() {
         val q = PlayQueue(listOf(item("a"), item("b")))
         assertNull(q.takeNextOnEnd(queueOn = false))
