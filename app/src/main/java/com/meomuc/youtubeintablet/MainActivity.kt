@@ -42,6 +42,8 @@ import java.io.ByteArrayInputStream
  * Ticket #6: PiP khi bấm Home lúc đang phát, và nút PiP trong app.
  * Ticket #7: xoay màn hình không tạo lại Activity; báo lỗi mất mạng.
  * Ticket #8: chặn request quảng cáo theo AdBlocker.
+ * Ticket #10: nút ☰ mở bảng hiển thị nhanh (4 mục bật/tắt, lưu lại).
+ * Ticket #11, #12: ẩn Shorts, bình luận, video đề xuất theo lựa chọn (DisplayFilter).
  */
 class MainActivity : Activity() {
 

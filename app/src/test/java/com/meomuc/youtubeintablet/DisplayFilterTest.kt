@@ -20,6 +20,26 @@ class DisplayFilterTest {
     }
 
     @Test
+    fun hidesCommentsOnlyWhenCommentsOff() {
+        assertTrue(DisplayFilter.css(DisplayOptions(showComments = false)).contains("ytd-watch-flexy #comments"))
+        assertFalse(DisplayFilter.css(DisplayOptions(showComments = true)).contains("#comments"))
+    }
+
+    @Test
+    fun hidesRelatedOnlyOnWatchPageWhenRelatedOff() {
+        val css = DisplayFilter.css(DisplayOptions(showRelated = false))
+        assertTrue(css.contains("ytd-watch-flexy #related"))
+        // Trang chủ vẫn phải hiện đề xuất: không có selector nào nhắm vào lưới trang chủ.
+        assertFalse(css.contains("ytd-rich-grid"))
+        assertFalse(DisplayFilter.css(DisplayOptions(showRelated = true)).contains("#related"))
+    }
+
+    @Test
+    fun emptyCssWhenEverythingShown() {
+        assertTrue(DisplayFilter.css(DisplayOptions(showShorts = true, showComments = true, showRelated = true)).isEmpty())
+    }
+
+    @Test
     fun applyJsEscapesCssForJavascriptString() {
         val js = DisplayFilter.applyJs(DisplayOptions(showShorts = false))
         // CSS có dấu nháy kép trong selector: phải được escape, không được có ký tự xuống dòng thô.

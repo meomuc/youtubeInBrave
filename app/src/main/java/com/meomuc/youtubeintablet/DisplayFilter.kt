@@ -24,9 +24,26 @@ object DisplayFilter {
         "a[href^=\"/shorts\"]",
     )
 
+    /** Khu bình luận dưới video (chỉ trên trang xem video). */
+    private val COMMENTS_SELECTORS = listOf(
+        "ytd-watch-flexy #comments",
+        "ytd-engagement-panel-section-list-renderer[target-id=\"engagement-panel-comments-section\"]",
+    )
+
+    /**
+     * Đề xuất cạnh/dưới trình phát. Chỉ nhắm vào trang xem video, không nhắm lưới trang chủ,
+     * nên trang chủ vẫn hiện video đề xuất khi mục này tắt.
+     */
+    private val RELATED_SELECTORS = listOf(
+        "ytd-watch-flexy #related",
+        "ytd-watch-flexy ytd-watch-next-secondary-results-renderer",
+    )
+
     /** Danh sách selector cần ẩn theo lựa chọn hiện tại. */
     private fun hiddenSelectors(options: DisplayOptions): List<String> = buildList {
         if (!options.showShorts) addAll(SHORTS_SELECTORS)
+        if (!options.showComments) addAll(COMMENTS_SELECTORS)
+        if (!options.showRelated) addAll(RELATED_SELECTORS)
     }
 
     /** CSS đầy đủ: mỗi selector một luật display:none. Rỗng nếu không cần ẩn gì. */
