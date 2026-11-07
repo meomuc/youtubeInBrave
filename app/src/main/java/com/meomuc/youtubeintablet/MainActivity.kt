@@ -22,6 +22,7 @@ import android.os.Looper
 import android.text.TextUtils
 import android.util.Log
 import android.util.Rational
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -33,9 +34,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -62,14 +63,18 @@ class MainActivity : Activity() {
 
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
-    private lateinit var pipButton: Button
+    private lateinit var pipButton: ImageButton
     /** Nút ☰ góc dưới bên trái mở bảng hiển thị nhanh (ticket #10). */
     private lateinit var menuButton: ImageButton
     private lateinit var quickPanel: QuickPanel
     /** Hàng đợi phát cục bộ (ticket #13), tách khỏi playlist YouTube; khôi phục khi mở app. */
     private lateinit var queue: PlayQueue
-    /** Nút mở bảng hàng đợi, nằm phía trên nút ☰ (ticket #13). */
-    private lateinit var queueButton: Button
+    /** Nút mở bảng hàng đợi, nằm phía trên nút ☰ (ticket #13). Chỉ có icon; số mục hiện ở [queueBadge]. */
+    private lateinit var queueButton: ImageButton
+    /** Huy hiệu số mục trên nút hàng đợi (ticket #19). */
+    private lateinit var queueBadge: TextView
+    /** Khung chứa nút hàng đợi và huy hiệu; ẩn/hiện cả khung. */
+    private lateinit var queueContainer: FrameLayout
     private lateinit var queuePanel: QueuePanel
     /** Lựa chọn hiển thị hiện tại; đọc từ SharedPreferences khi mở app (ticket #10). */
     private var displayOptions = DisplayOptions()
@@ -158,7 +163,7 @@ class MainActivity : Activity() {
                 // Chỉ gắn hook phát nền cho YouTube, không cho trang bên thứ ba.
                 if (Uri.parse(url).host?.endsWith("youtube.com") == true) {
                     view.evaluateJavascript(PLAYBACK_HOOK_JS, null)
-                    view.evaluateJavascript(QUEUE_BAR_JS, null)
+                    view.evaluateJavascript(QueueWebScript.SCRIPT, null)
                     applyDisplayFilter()
                     seekPendingResume(view, url)
                     completeQueueLoad(url)
@@ -193,13 +198,12 @@ class MainActivity : Activity() {
         root = FrameLayout(this)
         root.addView(webView, FrameLayout.LayoutParams(MATCH, MATCH))
         // Nút PiP trong app (ticket #6): vào PiP theo yêu cầu.
-        pipButton = Button(this).apply {
-            text = "PiP"
-            setOnClickListener { enterPip() }
-        }
+        val density = resources.displayMetrics.density
+        val buttonSize = (BUTTON_SIZE_DP * density).toInt()
+        pipButton = iconButton(R.drawable.ic_ph_picture_in_picture, "Thu nhỏ video (PiP)") { enterPip() }
         root.addView(
             pipButton,
-            FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.END).apply {
+            FrameLayout.LayoutParams(buttonSize, buttonSize, Gravity.BOTTOM or Gravity.END).apply {
                 setMargins(0, 0, 24, 24)
             }
         )
@@ -211,15 +215,10 @@ class MainActivity : Activity() {
             prefs.edit().apply { options.writeTo { key, value -> putBoolean(key, value) } }.apply()
             applyDisplayFilter()
         }
-        menuButton = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_menu)
-            setBackgroundColor(MENU_BG_COLOR)
-            contentDescription = "Mở bảng hiển thị nhanh"
-            tooltipText = "Hiển thị nhanh"
-            setOnClickListener { if (quickPanel.isOpen) quickPanel.hide() else quickPanel.show() }
+        menuButton = iconButton(R.drawable.ic_ph_list, "Mở bảng hiển thị nhanh") {
+            if (quickPanel.isOpen) quickPanel.hide() else quickPanel.show()
         }
-        val density = resources.displayMetrics.density
-        val menuSize = (MENU_SIZE_DP * density).toInt()
+        val menuSize = buttonSize
         val menuMargin = (MENU_MARGIN_DP * density).toInt()
         root.addView(
             menuButton,
@@ -232,12 +231,27 @@ class MainActivity : Activity() {
             QueueCodec.decode(getSharedPreferences(PREFS_QUEUE, MODE_PRIVATE).getString(KEY_QUEUE_ITEMS, "") ?: "")
         )
         queuePanel = QueuePanel(this, queue) { onQueueChanged() }
-        queueButton = Button(this).apply {
-            setBackgroundColor(MENU_BG_COLOR)
-            setOnClickListener { if (queuePanel.isOpen) queuePanel.hide() else queuePanel.show() }
+        queueButton = iconButton(R.drawable.ic_ph_queue, "Mở hàng đợi") {
+            if (queuePanel.isOpen) queuePanel.hide() else queuePanel.show()
+        }
+        queueBadge = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setBackgroundColor(BADGE_BG_COLOR)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+            setPadding((BADGE_PADDING_DP * density).toInt(), 0, (BADGE_PADDING_DP * density).toInt(), 0)
+            minWidth = (BADGE_SIZE_DP * density).toInt()
+            minHeight = (BADGE_SIZE_DP * density).toInt()
+        }
+        queueContainer = FrameLayout(this).apply {
+            addView(queueButton, FrameLayout.LayoutParams(buttonSize, buttonSize, Gravity.TOP or Gravity.START))
+            addView(
+                queueBadge,
+                FrameLayout.LayoutParams(WRAP, (BADGE_SIZE_DP * density).toInt(), Gravity.TOP or Gravity.END)
+            )
         }
         root.addView(
-            queueButton,
+            queueContainer,
             FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START).apply {
                 setMargins(menuMargin, 0, 0, menuMargin + menuSize + (QUEUE_GAP_DP * density).toInt())
             }
@@ -307,7 +321,7 @@ class MainActivity : Activity() {
         pipButton.visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
         // Cửa sổ PiP nhỏ: ẩn nút ☰ và đóng bảng nếu đang mở.
         menuButton.visibility = pipButton.visibility
-        queueButton.visibility =
+        queueContainer.visibility =
             if (isInPictureInPictureMode || !displayOptions.showQueue) View.GONE else View.VISIBLE
         if (isInPictureInPictureMode) {
             quickPanel.hide()
@@ -342,8 +356,27 @@ class MainActivity : Activity() {
     }
 
     private fun refreshQueueUi() {
-        queueButton.text = "Hàng đợi (${queue.items.size})"
-        queueButton.visibility = if (displayOptions.showQueue) View.VISIBLE else View.GONE
+        val count = queue.items.size
+        queueButton.contentDescription = "Mở hàng đợi, $count mục"
+        queueButton.tooltipText = "Hàng đợi ($count)"
+        queueBadge.text = count.toString()
+        queueBadge.visibility = if (count > 0) View.VISIBLE else View.GONE
+        queueContainer.visibility = if (displayOptions.showQueue) View.VISIBLE else View.GONE
+    }
+
+    /** Nút chỉ có icon Phosphor, cỡ chạm 56dp, nền trung tính; có nhãn đọc màn hình và tooltip (AGENTS.md, mục UI). */
+    private fun iconButton(iconRes: Int, label: String, onClick: () -> Unit): ImageButton {
+        val density = resources.displayMetrics.density
+        val pad = (ICON_PADDING_DP * density).toInt()
+        return ImageButton(this).apply {
+            setImageResource(iconRes)
+            setBackgroundColor(MENU_BG_COLOR)
+            contentDescription = label
+            tooltipText = label
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(pad, pad, pad, pad)
+            setOnClickListener { onClick() }
+        }
     }
 
     /** Nhận mục từ nút trên trang xem video (ticket #13). Gọi từ luồng WebView. */
@@ -424,14 +457,11 @@ class MainActivity : Activity() {
             ellipsize = TextUtils.TruncateAt.END
         }
         bar.addView(label, LinearLayout.LayoutParams(0, WRAP, 1f))
-        bar.addView(Button(this).apply {
-            text = "Tiếp tục"
-            setOnClickListener { resumeVideo(point) }
-        })
-        bar.addView(Button(this).apply {
-            text = "Bỏ qua"
-            setOnClickListener { hideResumeBanner() }
-        })
+        val size = (BUTTON_SIZE_DP * resources.displayMetrics.density).toInt()
+        bar.addView(iconButton(R.drawable.ic_ph_play, "Tiếp tục xem ${point.title}") { resumeVideo(point) },
+            LinearLayout.LayoutParams(size, size))
+        bar.addView(iconButton(R.drawable.ic_ph_x, "Bỏ qua lời nhắc xem dở") { hideResumeBanner() },
+            LinearLayout.LayoutParams(size, size))
         root.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP))
         resumeBanner = bar
     }
@@ -594,43 +624,15 @@ class MainActivity : Activity() {
         fun queueFlagJs(on: Boolean) =
             "window.__ytTabletQueueOn=$on;if(window.__ytTabletUpdateQueueBar){window.__ytTabletUpdateQueueBar();}"
 
-        /**
-         * Nút "Thêm vào hàng đợi" và "Phát tiếp theo" trên trang xem video. Chỉ hiện khi /watch và hàng đợi bật.
-         * Lấy id video và tiêu đề tại thời điểm bấm, nên đúng cả khi chuyển video trong SPA.
-         */
-        const val QUEUE_BAR_JS = """(function(){
-  if (window.__ytTabletQueueBar) return;
-  window.__ytTabletQueueBar = true;
-  function send(next){
-    var id = '';
-    try { id = new URL(location.href).searchParams.get('v') || ''; } catch (e) {}
-    var title = (document.title || '').replace(/\s*-\s*YouTube\s*$/, '').trim();
-    if (id) AndroidQueue.add(id, title, next);
-  }
-  function btn(label, next){
-    var b = document.createElement('button');
-    b.textContent = label;
-    b.style.cssText = 'padding:12px 20px;border:1px solid #ccc;border-radius:24px;background:#fff;color:#222;font:15px sans-serif;';
-    b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); send(next); });
-    return b;
-  }
-  var bar = document.createElement('div');
-  bar.id = 'yt-tablet-queue-bar';
-  bar.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483646;display:none;gap:12px;';
-  bar.appendChild(btn('+ Thêm vào hàng đợi', false));
-  bar.appendChild(btn('Phát tiếp theo', true));
-  (document.documentElement || document.body).appendChild(bar);
-  window.__ytTabletUpdateQueueBar = function(){
-    var on = !!window.__ytTabletQueueOn && location.pathname === '/watch';
-    bar.style.display = on ? 'flex' : 'none';
-  };
-  document.addEventListener('yt-navigate-finish', window.__ytTabletUpdateQueueBar, true);
-  window.__ytTabletUpdateQueueBar();
-})();"""
-        const val MENU_SIZE_DP = 56
+        /** Cỡ chạm tối thiểu của nút điều khiển (ticket #20). */
+        const val BUTTON_SIZE_DP = 56
+        const val ICON_PADDING_DP = 14
+        const val BADGE_SIZE_DP = 20
+        const val BADGE_PADDING_DP = 5
         const val MENU_MARGIN_DP = 24
-        // Màu tạm, chờ design-system/MASTER.md (chưa có trong repo).
+        // Màu neutral, chờ design-system/MASTER.md (chưa có trong repo). Xem docs/ui-icons.md.
         const val MENU_BG_COLOR = 0xFFF2F2F2.toInt()
+        const val BADGE_BG_COLOR = 0xFF0F0F0F.toInt()
 
         /** Bấm phát/tạm dừng video đầu tiên trên trang (dùng cho nút PiP). */
         const val TOGGLE_JS =

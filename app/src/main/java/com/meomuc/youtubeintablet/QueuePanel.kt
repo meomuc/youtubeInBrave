@@ -6,8 +6,9 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -96,41 +97,52 @@ class QueuePanel(
             setTextColor(TEXT_COLOR)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         }
-        val playNext = Button(context).apply {
-            text = "Phát tiếp theo"
+        val name = item.title.ifBlank { item.videoId }
+        val playNext = iconButton(R.drawable.ic_ph_skip_forward, "Phát tiếp theo: $name").apply {
             isEnabled = index > 0
+            alpha = if (index > 0) 1f else DISABLED_ALPHA
             setOnClickListener {
                 queue.playNext(item)
                 onChanged()
             }
         }
-        val remove = Button(context).apply {
-            text = "Xóa"
-            contentDescription = "Xóa khỏi hàng đợi: ${item.title.ifBlank { item.videoId }}"
+        val remove = iconButton(R.drawable.ic_ph_trash, "Xóa khỏi hàng đợi: $name").apply {
             setOnClickListener {
                 queue.removeAt(index)
                 onChanged()
             }
         }
         // Tay cầm kéo đổi thứ tự (ticket #15). Chạm xuống thì ngăn ScrollView cuộn.
-        val handle = TextView(context).apply {
-            text = "Kéo"
-            contentDescription = "Kéo để đổi thứ tự"
-            setTextColor(HINT_COLOR)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+        val handle = ImageView(context).apply {
+            setImageResource(R.drawable.ic_ph_dots_six_vertical)
+            contentDescription = "Kéo để đổi thứ tự: $name"
+            tooltipText = "Kéo để đổi thứ tự"
+            setPadding(dp(ICON_PAD_DP), dp(ICON_PAD_DP), dp(ICON_PAD_DP), dp(ICON_PAD_DP))
+            setBackgroundColor(BUTTON_BG)
             setOnTouchListener { v, event -> onHandleTouch(v, event, index) }
         }
+        val size = dp(TOUCH_SIZE_DP)
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(8), 0, dp(8))
             addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(handle)
-            addView(playNext)
-            addView(remove)
+            addView(handle, LinearLayout.LayoutParams(size, size))
+            addView(playNext, LinearLayout.LayoutParams(size, size).apply { leftMargin = dp(MARGIN_DP) })
+            addView(remove, LinearLayout.LayoutParams(size, size).apply { leftMargin = dp(MARGIN_DP) })
         }
     }
+
+    /** Nút chỉ có icon Phosphor, cỡ chạm 56dp, nền trung tính; có nhãn đọc màn hình và tooltip. */
+    private fun iconButton(iconRes: Int, label: String): ImageButton =
+        ImageButton(context).apply {
+            setImageResource(iconRes)
+            setBackgroundColor(BUTTON_BG)
+            contentDescription = label
+            tooltipText = label
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(ICON_PAD_DP), dp(ICON_PAD_DP), dp(ICON_PAD_DP), dp(ICON_PAD_DP))
+        }
 
     /** Kéo dòng [index]: dòng đi theo ngón tay, thả xuống thì đổi vị trí trong [queue]. */
     private fun onHandleTouch(handle: View, event: MotionEvent, index: Int): Boolean {
@@ -179,5 +191,11 @@ class QueuePanel(
         const val TEXT_COLOR = 0xFF222222.toInt()
         const val HINT_COLOR = 0xFF666666.toInt()
         const val DRAG_ALPHA = 0.7f
+        const val DISABLED_ALPHA = 0.35f
+        const val TOUCH_SIZE_DP = 56
+        const val ICON_PAD_DP = 14
+        const val MARGIN_DP = 8
+        // Nền trung tính, chờ design-system/MASTER.md (xem docs/ui-icons.md).
+        const val BUTTON_BG = 0xFFF2F2F2.toInt()
     }
 }
