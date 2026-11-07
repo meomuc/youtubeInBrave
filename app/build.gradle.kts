@@ -19,7 +19,6 @@ android {
             isMinifyEnabled = false
         }
     }
-
 }
 
 dependencies {

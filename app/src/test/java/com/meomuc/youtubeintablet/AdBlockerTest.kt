@@ -27,7 +27,7 @@ class AdBlockerTest {
     }
 
     @Test
-    fun doesNotBlockDomainThatmerelyEndsWithAdDomainName() {
+    fun doesNotBlockDomainThatMerelyEndsWithAdDomainName() {
         assertFalse(AdBlocker.isBlocked("https://notdoubleclick.net/x"))
     }
 

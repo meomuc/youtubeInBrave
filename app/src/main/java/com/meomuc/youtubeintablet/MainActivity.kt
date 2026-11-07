@@ -9,9 +9,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.util.Rational
 import android.view.Gravity
@@ -28,7 +32,6 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import java.io.ByteArrayInputStream
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Ticket #3: mở youtube.com toàn màn hình trong WebView, Back theo lịch sử.
@@ -42,6 +45,11 @@ class MainActivity : Activity() {
 
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
+    private lateinit var pipButton: Button
+    private val handler = Handler(Looper.getMainLooper())
+    private val stopServiceRunnable = Runnable {
+        stopService(Intent(this, PlaybackService::class.java))
+    }
 
     /** View video khi YouTube bấm nút toàn màn hình (null nếu không ở chế độ đó). */
     private var customView: View? = null
@@ -49,8 +57,6 @@ class MainActivity : Activity() {
 
     /** Trạng thái phát do trang báo qua cầu JavaScript; dùng cho service và PiP. */
     private var isPlaying = false
-
-    private val blockedCount = AtomicInteger(0)
 
     private val toggleReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -84,13 +90,15 @@ class MainActivity : Activity() {
                 val url = request.url.toString()
                 if (!AdBlocker.isBlocked(url)) return null
                 // Đo: lọc log theo tag AdBlock (adb logcat -s AdBlock) để đếm số request đã chặn.
-                blockedCount.incrementAndGet()
                 Log.i(TAG_AD_BLOCK, "blocked host=${request.url.host}")
                 return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
             }
 
             override fun onPageFinished(view: WebView, url: String) {
-                view.evaluateJavascript(PLAYBACK_HOOK_JS, null)
+                // Chỉ gắn hook phát nền cho YouTube, không cho trang bên thứ ba.
+                if (Uri.parse(url).host?.endsWith("youtube.com") == true) {
+                    view.evaluateJavascript(PLAYBACK_HOOK_JS, null)
+                }
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -119,7 +127,7 @@ class MainActivity : Activity() {
         root = FrameLayout(this)
         root.addView(webView, FrameLayout.LayoutParams(MATCH, MATCH))
         // Nút PiP trong app (ticket #6): vào PiP theo yêu cầu.
-        val pipButton = Button(this).apply {
+        pipButton = Button(this).apply {
             text = "PiP"
             setOnClickListener { enterPip() }
         }
@@ -173,6 +181,12 @@ class MainActivity : Activity() {
         if (hasFocus) applyImmersiveMode()
     }
 
+    /** Ẩn nút PiP trong app khi đã ở cửa sổ PiP (nút này sẽ hiện trong cửa sổ nhỏ). */
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pipButton.visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
+    }
+
     override fun onDestroy() {
         setPlaying(false)
         unregisterReceiver(toggleReceiver)
@@ -199,9 +213,11 @@ class MainActivity : Activity() {
         Log.i(TAG_PLAYBACK, "state=$playing")
         val serviceIntent = Intent(this, PlaybackService::class.java)
         if (playing) {
+            // Phát lại trong vòng chờ thì hủy lệnh dừng; tránh dừng rồi bật lại service.
+            handler.removeCallbacks(stopServiceRunnable)
             startForegroundService(serviceIntent)
         } else {
-            stopService(serviceIntent)
+            handler.postDelayed(stopServiceRunnable, STOP_DELAY_MS)
         }
         // Cập nhật nút phát/tạm dừng trong PiP nếu đang ở PiP.
         if (isInPictureInPictureMode) setPictureInPictureParams(buildPipParams())
@@ -255,6 +271,7 @@ class MainActivity : Activity() {
         const val ACTION_TOGGLE = "com.meomuc.youtubeintablet.TOGGLE_PLAYBACK"
         const val TAG_AD_BLOCK = "AdBlock"
         const val TAG_PLAYBACK = "Playback"
+        const val STOP_DELAY_MS = 1000L
 
         /** Bấm phát/tạm dừng video đầu tiên trên trang (dùng cho nút PiP). */
         const val TOGGLE_JS =
@@ -285,7 +302,12 @@ class MainActivity : Activity() {
   }, true);
   function report(){
     var v = document.querySelector('video');
-    AndroidPlayback.onState(!!(v && !v.paused && !v.ended));
+    var playing = !!(v && !v.paused && !v.ended);
+    // Đang phát thì xóa cờ "người dùng tạm dừng" để lần sau tự phát lại ở nền vẫn hoạt động.
+    if (playing) window.__ytTabletUserPaused = false;
+    // Hệ thống tạm dừng khi xuống nền: không báo, để trang tự phát lại (tránh dừng rồi bật lại service).
+    if (!playing && window.__ytTabletBg && !window.__ytTabletUserPaused) return;
+    AndroidPlayback.onState(playing);
   }
   ['play', 'playing', 'pause', 'ended'].forEach(function(e){ document.addEventListener(e, report, true); });
 })();"""

@@ -9,7 +9,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 - Nút Back quay lại trang trước; khi hết lịch sử thì thoát app.
 - Đăng nhập Google trong app (chưa nghiệm thu đăng nhập đầy đủ).
 - Video tiếp tục phát khi app xuống nền hoặc khóa màn hình; dừng khi tạm dừng.
-- Bấm Home khi đang phát thì vào chế độ thu nhỏ (PiP); nút PiP trong app và nút phát/tạm dừng trong PiP.
+- Bấm Home khi đang phát thì vào chế độ thu nhỏ (PiP); nút phát/tạm dừng trong PiP hoạt động. Nút PiP trong app đã có mã nhưng chưa kiểm chứng.
 - Xoay màn hình không làm mất trang đang xem; báo rõ khi không có mạng.
 - Chặn một số tên miền quảng cáo (chưa đo được mức quảng cáo còn sót).
 

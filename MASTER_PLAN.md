@@ -45,7 +45,7 @@ Không dùng iframe player thay website. Không xây máy chủ đồng bộ.
 
 ## 5. Progress Log
 
-* [07/11/2026 - 18:10] | Phase: 1 — MVP | Status: Tickets #4 (một phần), #5, #6, #7 (xong), #8 (phần chặn và cách đo) đã có mã và kiểm chứng trên emulator
+* [07/11/2026 - 18:10] | Phase: 1 — MVP | Status: Tickets #4 (một phần), #5, #6, #7, #8 (phần chặn và cách đo) đã có mã; kiểm chứng một phần trên emulator, còn mục chưa kiểm chứng ghi trong devlog
   - Hoàn thành: phát nền qua service foreground; PiP khi Home và nút PiP trong app; xoay màn hình giữ trang; báo mất mạng; chặn request quảng cáo theo tên miền (6 unit test).
   - Còn lại: nghiệm thu trên thiết bị thật (ticket #9); đăng nhập Google đầy đủ (ticket #4, cần tài khoản); số liệu quảng cáo còn sót (ticket #8); thoát app dừng service, nút PiP trong app và quay lại từ PiP (ticket #5, #6).
 

@@ -1,6 +1,34 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [07/11/2026 - 18:30] - Task: Ticket #4 và #7 — Đăng nhập Google (một phần) và xoay màn hình, báo mất mạng (Cấp: S/M)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/main/AndroidManifest.xml`
+  - File tạo/sửa:
+    - `MainActivity.kt` — gỡ `; wv` và `Version/4.0` khỏi User-Agent; bật cookie (commit `cfb3bd0`); chặn scheme không phải http/https; `onReceivedError` hiện trang mất mạng (#7).
+    - `AndroidManifest.xml` — `configChanges="orientation|screenSize|screenLayout|smallestScreenSize"` để xoay không tạo lại Activity (commit `9b97446`).
+  - Dependencies: Không.
+* **2. Quyết định cốt lõi:** Không đổi engine (ADR 0003 giữ nguyên) vì trang đăng nhập Google hiện đúng. Xoay màn hình xử lý bằng `configChanges`, không lưu trạng thái WebView.
+* **3. Kiểm chứng:**
+  - #4: trang đăng nhập Google hiện form email, không có lỗi "trình duyệt không an toàn" (ảnh `ticket4-google.png`). Chưa đăng nhập tài khoản thật; chưa kiểm chứng giữ phiên sau khi mở lại.
+  - #4: trước khi sửa, nút "Open App" hiện `ERR_UNKNOWN_URL_SCHEME`; sau khi chặn scheme lạ, trang chủ hiện bình thường.
+  - #7: mất mạng (tắt Wi-Fi) hiện trang thông báo tiếng Việt (ảnh `ticket7-offline.png`).
+  - #7: xoay màn hình ROTATION_0 ↔ ROTATION_90; PID app không đổi (3739), không có log relaunch.
+* **4. Rủi ro / cần review:**
+  - #4 chưa xong: cần tài khoản thật để xác nhận đăng nhập và giữ phiên.
+  - Trang mất mạng dùng `loadDataWithBaseURL` nên có thể thêm một mục lịch sử; Back có thể quay về trang lỗi.
+  - Ghi chú: các commit `cfb3bd0` và `9b97446` đã push; mục này ghi bù.
+
 ### [07/11/2026 - 18:10] - Task: Tickets #5, #6, #8 — Phát nền, PiP, chặn quảng cáo theo danh sách (Cấp: L)
+* Lưu ý: commit `aa9aaf7` gộp cả ba ticket; không tách được. Ghi nhận như một lỗi quy trình ("1 ticket = 1 commit").
+* **Sửa theo review (commit kế tiếp):**
+  - Cờ `__ytTabletUserPaused` được xóa khi video đang phát, nên tự phát lại ở nền vẫn hoạt động sau một lần tạm dừng bằng nút PiP.
+  - Trang không báo trạng thái "dừng" do hệ thống khi đang ở nền, và việc dừng service được trì hoãn 1 giây (hủy nếu phát lại). Tránh dừng rồi bật lại service (Android 12+ có thể chặn `startForegroundService` ở nền). Kiểm chứng: sau Home, log không còn cặp false/true, service vẫn chạy.
+  - Hook JS chỉ gắn trên host youtube.com.
+  - Nút PiP trong app ẩn khi đang ở cửa sổ PiP.
+  - Bỏ `google-analytics.com` khỏi danh sách chặn (không phải quảng cáo, ngoài phạm vi #8).
+  - Bỏ biến `blockedCount` không dùng; sửa tên test.
+  - Còn rủi ro: `AndroidPlayback` vẫn gắn cho mọi frame (hạn chế của `addJavascriptInterface`); cần `WebViewCompat.addWebMessageListener` để giới hạn origin nếu thêm chức năng.
+
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/test/`
   - File tạo/sửa:
