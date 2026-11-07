@@ -11,12 +11,14 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.TextUtils
 import android.util.Log
 import android.util.Rational
 import android.view.Gravity
@@ -33,7 +35,10 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.TextView
 import java.io.ByteArrayInputStream
+import java.util.Locale
 
 /**
  * Ticket #3: mở youtube.com toàn màn hình trong WebView, Back theo lịch sử.
@@ -44,6 +49,8 @@ import java.io.ByteArrayInputStream
  * Ticket #8: chặn request quảng cáo theo AdBlocker.
  * Ticket #10: nút ☰ mở bảng hiển thị nhanh (4 mục bật/tắt, lưu lại).
  * Ticket #11, #12: ẩn Shorts, bình luận, video đề xuất theo lựa chọn (DisplayFilter).
+ * Ticket #16: lưu vị trí xem dở và nhắc tiếp tục khi mở app (không tự phát).
+ * Ticket #18: mất audio focus (cuộc gọi, app khác) thì tạm dừng; không tự phát lại.
  */
 class MainActivity : Activity() {
 
@@ -55,6 +62,16 @@ class MainActivity : Activity() {
     private lateinit var quickPanel: QuickPanel
     /** Lựa chọn hiển thị hiện tại; đọc từ SharedPreferences khi mở app (ticket #10). */
     private var displayOptions = DisplayOptions()
+    private lateinit var resumeStore: ResumeStore
+
+    /** Giữ audio focus khi đang phát; mất focus (cuộc gọi, app khác) thì tạm dừng (ticket #18). */
+    private lateinit var audioFocus: PlaybackAudioFocus
+
+    /** Thanh nhắc tiếp tục xem; null khi không hiện. */
+    private var resumeBanner: View? = null
+
+    /** Video vừa bấm "Tiếp tục": cần tua tới vị trí này khi trang watch tải xong. */
+    @Volatile private var pendingResume: ResumePoint? = null
     /** Engine chặn quảng cáo (ADR 0004); null cho tới khi nạp xong danh sách lọc. */
     @Volatile private var adEngine: AdEngine? = null
 
@@ -92,6 +109,8 @@ class MainActivity : Activity() {
         // Cookie được lưu trên đĩa, nên phiên đăng nhập còn sau khi đóng và mở lại app.
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        resumeStore = ResumeStore(this)
+        audioFocus = PlaybackAudioFocus(this) { webView.evaluateJavascript(PAUSE_JS, null) }
         webView.addJavascriptInterface(PlaybackBridge(), "AndroidPlayback")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -122,6 +141,7 @@ class MainActivity : Activity() {
                 if (Uri.parse(url).host?.endsWith("youtube.com") == true) {
                     view.evaluateJavascript(PLAYBACK_HOOK_JS, null)
                     applyDisplayFilter()
+                    seekPendingResume(view, url)
                 }
             }
 
@@ -189,6 +209,8 @@ class MainActivity : Activity() {
         root.addView(quickPanel, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
         applyImmersiveMode()
+        // Mở app chỉ hỏi có tiếp tục không; không tự phát (ticket #16).
+        resumeStore.load()?.takeIf { ResumeRules.shouldPrompt(it) }?.let { showResumeBanner(it) }
 
         val filter = IntentFilter(ACTION_TOGGLE)
         if (Build.VERSION.SDK_INT >= 33) {
@@ -266,11 +288,84 @@ class MainActivity : Activity() {
         webView.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null)
     }
 
-    /** Nhận trạng thái phát từ trang. Gọi từ luồng WebView, nên chuyển sang luồng chính. */
+    /** Thanh nhắc "Xem dở: tên video" với nút Tiếp tục và Bỏ qua (ticket #16). */
+    private fun showResumeBanner(point: ResumePoint) {
+        if (resumeBanner != null) return
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(BANNER_BG)
+            setPadding(BANNER_PADDING, BANNER_PADDING / 2, BANNER_PADDING, BANNER_PADDING / 2)
+        }
+        val label = TextView(this).apply {
+            text = "Xem dở: ${point.title} (${formatPosition(point.positionMs)})"
+            setTextColor(Color.WHITE)
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        bar.addView(label, LinearLayout.LayoutParams(0, WRAP, 1f))
+        bar.addView(Button(this).apply {
+            text = "Tiếp tục"
+            setOnClickListener { resumeVideo(point) }
+        })
+        bar.addView(Button(this).apply {
+            text = "Bỏ qua"
+            setOnClickListener { hideResumeBanner() }
+        })
+        root.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP))
+        resumeBanner = bar
+    }
+
+    /** Định dạng vị trí cho người dùng đọc: m:ss, hoặc h:mm:ss nếu từ một giờ trở lên. */
+    private fun formatPosition(positionMs: Long): String {
+        val total = positionMs / 1000
+        val h = total / 3600
+        val m = (total % 3600) / 60
+        val s = total % 60
+        return if (h > 0) String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s)
+        else String.format(Locale.ROOT, "%d:%02d", m, s)
+    }
+
+    private fun hideResumeBanner() {
+        resumeBanner?.let { root.removeView(it) }
+        resumeBanner = null
+    }
+
+    /** Mở đúng trang video; trang tải xong thì tua tới vị trí đã lưu và phát (xem seekPendingResume). */
+    private fun resumeVideo(point: ResumePoint) {
+        hideResumeBanner()
+        pendingResume = point
+        webView.loadUrl("${START_URL}watch?v=${point.videoId}")
+    }
+
+    /** Tua và phát tại vị trí đã lưu khi đúng trang watch của video đó vừa tải xong. */
+    private fun seekPendingResume(view: WebView, url: String) {
+        val point = pendingResume ?: return
+        val uri = Uri.parse(url)
+        if (uri.path != "/watch" || uri.getQueryParameter("v") != point.videoId) return
+        pendingResume = null
+        view.evaluateJavascript(
+            String.format(Locale.ROOT, SEEK_JS_TEMPLATE, point.positionMs / 1000.0), null
+        )
+    }
+
+    /** Nhận trạng thái phát và tiến độ từ trang. Gọi từ luồng WebView, nên chuyển sang luồng chính khi cần. */
     private inner class PlaybackBridge {
         @JavascriptInterface
         fun onState(playing: Boolean) {
             runOnUiThread { setPlaying(playing) }
+        }
+
+        /** Ghi vị trí định kỳ khi đang phát (ticket #16). */
+        @JavascriptInterface
+        fun onProgress(videoId: String?, title: String?, positionSec: Double, durationSec: Double) {
+            ResumeRules.toSave(videoId, title, positionSec, durationSec)?.let { resumeStore.save(it) }
+        }
+
+        /** Xem hết thì xóa lời nhắc của đúng video đó, không nhắc lại (ticket #16). */
+        @JavascriptInterface
+        fun onEnded(videoId: String?) {
+            resumeStore.clearIf(videoId)
         }
     }
 
@@ -278,7 +373,9 @@ class MainActivity : Activity() {
     private fun setPlaying(playing: Boolean) {
         if (playing == isPlaying) return
         isPlaying = playing
+        if (playing) hideResumeBanner()
         Log.i(TAG_PLAYBACK, "state=$playing")
+        if (playing) audioFocus.acquire() else audioFocus.release()
         val serviceIntent = Intent(this, PlaybackService::class.java)
         if (playing) {
             // Phát lại trong vòng chờ thì hủy lệnh dừng; tránh dừng rồi bật lại service.
@@ -383,7 +480,43 @@ class MainActivity : Activity() {
     AndroidPlayback.onState(playing);
   }
   ['play', 'playing', 'pause', 'ended'].forEach(function(e){ document.addEventListener(e, report, true); });
+  // Ticket #16: ghi vị trí mỗi 5 giây khi đang phát, và ngay khi tạm dừng hoặc kết thúc.
+  function currentVideoId(){
+    try { return new URL(location.href).searchParams.get('v'); } catch (e) { return null; }
+  }
+  function pageTitle(){
+    return document.title.replace(/^\(\d+\)\s*/, '').replace(/\s*-\s*YouTube$/, '');
+  }
+  function saveProgress(){
+    var v = document.querySelector('video');
+    if (!v || location.pathname !== '/watch') return;
+    var id = currentVideoId();
+    if (v.ended) { AndroidPlayback.onEnded(id); return; }
+    AndroidPlayback.onProgress(id, pageTitle(), v.currentTime, v.duration);
+  }
+  setInterval(function(){
+    var v = document.querySelector('video');
+    if (v && !v.paused && !v.ended) saveProgress();
+  }, 5000);
+  ['pause', 'ended'].forEach(function(e){ document.addEventListener(e, saveProgress, true); });
 })();"""
+
+        /**
+         * Tạm dừng khi mất audio focus (ticket #18). Đặt cờ người dùng tạm dừng trước để hook nền
+         * không tự phát lại; sau cuộc gọi video chỉ phát khi người dùng bấm Play.
+         */
+        const val PAUSE_JS =
+            "(function(){var v=document.querySelector('video');if(v&&!v.paused){window.__ytTabletUserPaused=true;v.pause();}})();"
+
+        /** Tua tới vị trí đã lưu (giây) rồi phát; chờ tới khi có thẻ video. */
+        const val SEEK_JS_TEMPLATE = "(function(p){var tries=0;function go(){var v=document.querySelector('video');" +
+            "if(!v){if(++tries<100){setTimeout(go,200);}return;}" +
+            "var seek=function(){try{v.currentTime=p;}catch(e){}v.play().catch(function(){});};" +
+            "if(v.readyState>=1){seek();}else{v.addEventListener('loadedmetadata',seek,{once:true});}}" +
+            "go();})(%.3f);"
+
+        val BANNER_BG: Int = 0xEE222222.toInt()
+        const val BANNER_PADDING = 32
 
         const val OFFLINE_HTML = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:sans-serif;text-align:center;padding:48px;color:#222">
