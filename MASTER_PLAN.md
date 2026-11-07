@@ -45,6 +45,10 @@ Không dùng iframe player thay website. Không xây máy chủ đồng bộ.
 
 ## 5. Progress Log
 
+* [07/11/2026 - 17:46] | Phase: 1 — MVP | Status: Ticket #3 (youtube.com toàn màn hình trong WebView) xong
+  - Hoàn thành: WebView tải youtube.com, ẩn thanh hệ thống, Back theo lịch sử WebView, hết lịch sử thì thoát; kiểm chứng trên Pad_Android15.
+  - Tiếp theo: Ticket #4 (đăng nhập Google trong WebView). Chưa có issue, chờ tạo.
+
 * [07/11/2026] | Phase: Thiết kế | Status: Xác nhận thiết kế app-design.md; thiết lập repo, quy trình issue và các file quản lý
   - Hoàn thành: Git repo + remote GitHub; cấu hình issue tracker (GitHub) và 5 label triage; hook tự commit/push khi kết thúc phiên.
   - Tiếp theo: Xác nhận môi trường build và bắt đầu Bước 1.

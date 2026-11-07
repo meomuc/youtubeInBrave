@@ -1,5 +1,37 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [07/11/2026 - 17:46] - Task: Ticket #3 — Mở youtube.com toàn màn hình trong WebView (Cấp: S)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`
+  - File tạo/sửa:
+    - `MainActivity.kt` — thay khung chữ bằng WebView tải `https://www.youtube.com/`; bật JavaScript và DOM storage; ẩn thanh hệ thống (immersive); Back quay lại lịch sử WebView, hết lịch sử thì thoát; `WebChromeClient` xử lý video toàn màn hình; giữ trạng thái WebView khi `onSaveInstanceState`.
+    - `CHANGELOG.md` — mục Added cho bản Unreleased.
+    - `docs/devlog.md` — mục này.
+  - Dependencies: Không (chỉ dùng API `android.webkit` có sẵn).
+* **2. Quyết định cốt lõi:**
+  - Dùng `Activity` thuần, không thêm AppCompat hay Jetpack, để giữ app nhỏ.
+  - Back dùng `onBackPressed` (đã deprecated nhưng vẫn hoạt động trên minSdk 26); khi có video toàn màn hình thì Back thoát chế độ đó trước.
+  - Không tự xử lý rotation (`configChanges`); để ticket #7.
+  - Không có unit test: chặn Back và WebView cần Robolectric hoặc instrumented test (thư viện mới). Kiểm chứng bằng emulator thay thế.
+* **3. Kiểm chứng:**
+  - `./gradlew.bat :app:assembleDebug`: BUILD SUCCESSFUL (lỗi đầu tiên do trùng tên `setImmersive` với `Activity`, đã đổi thành `applyImmersiveMode`).
+  - Cài trên `Pad_Android15` (`adb install -r`): Success; mở app không có `AndroidRuntime` lỗi.
+  - Ảnh chụp: trang youtube.com tải được, không có thanh địa chỉ (`ticket3-home.png`).
+  - Back: mở tab Shorts rồi bấm Back → quay về trang chủ, app vẫn chạy; Back tiếp → app thoát về launcher.
+  - Chưa kiểm chứng: video toàn màn hình (nút fullscreen của YouTube) và đăng nhập Google.
+* **4. Rủi ro / cần review:**
+  - `onBackPressed` là API cũ; nếu nâng targetSdk lên 36+ thì chuyển sang `OnBackPressedDispatcher`.
+  - Đăng nhập Google có thể bị chặn vì WebView; kiểm tra ở ticket #4.
+
+### [07/11/2026 - 17:46] - Task: Ticket #2 — Khung app Android chạy được trên emulator (Cấp: S) — ghi bù
+* **1. Thay đổi:**
+  - Module/thư mục: `app/`, gốc repo
+  - File tạo/sửa: `app/build.gradle.kts`, `app/src/main/AndroidManifest.xml`, `app/src/main/res/values/strings.xml`, `MainActivity.kt` (khung TextView), `settings.gradle.kts`, `build.gradle.kts`, `gradle.properties`, `gradle/wrapper/*`, `gradlew`, `gradlew.bat` — commit `4c703e6`.
+  - Dependencies: Không (chỉ Android SDK; Gradle wrapper 9.9.0, AGP 9.5.1).
+* **2. Quyết định cốt lõi:** Mẫu tối thiểu: một Activity hiển thị tên app; chỉ quyền INTERNET; `allowBackup=false`.
+* **3. Kiểm chứng:** build thành công; cài và mở trên `Pad_Android15` không crash; ảnh chụp xác nhận. Issue #2 đã đóng kèm comment bằng chứng.
+* **4. Rủi ro / cần review:** Chưa có mục nhật ký này lúc commit; được ghi bù khi bắt đầu ticket #3.
+
 ### [07/11/2026 - 17:08] - Task: Chốt WebView, nhận diện tài khoản và cách chặn quảng cáo (Cấp: M)
 * **1. Thay đổi:**
   - Module/thư mục: `docs/adr/`, `docs/`, gốc repo

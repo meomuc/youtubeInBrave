@@ -4,4 +4,9 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 
 ## [Unreleased]
 
-Chưa có thay đổi nào người dùng cuối nhận thấy. Dự án đang ở giai đoạn thiết kế; xem [MASTER_PLAN.md](MASTER_PLAN.md).
+### Added
+- Mở youtube.com toàn màn hình trong app, không có thanh địa chỉ hay tab.
+- Nút Back quay lại trang trước; khi hết lịch sử thì thoát app.
+- Nút toàn màn hình của video YouTube hoạt động bên trong app.
+
+Xem thêm [MASTER_PLAN.md](MASTER_PLAN.md).
