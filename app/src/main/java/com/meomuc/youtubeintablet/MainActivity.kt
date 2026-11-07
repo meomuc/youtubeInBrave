@@ -32,6 +32,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import java.io.ByteArrayInputStream
 
 /**
@@ -47,6 +48,9 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
     private lateinit var pipButton: Button
+    /** Nút ☰ góc dưới bên trái mở bảng hiển thị nhanh (ticket #10). */
+    private lateinit var menuButton: ImageButton
+    private lateinit var quickPanel: QuickPanel
     /** Engine chặn quảng cáo (ADR 0004); null cho tới khi nạp xong danh sách lọc. */
     @Volatile private var adEngine: AdEngine? = null
 
@@ -152,6 +156,31 @@ class MainActivity : Activity() {
                 setMargins(0, 0, 24, 24)
             }
         )
+        // Bảng hiển thị nhanh (ticket #10): lựa chọn lưu trong SharedPreferences.
+        val prefs = getSharedPreferences(PREFS_DISPLAY, MODE_PRIVATE)
+        quickPanel = QuickPanel(this, DisplayOptions.fromStore { key, default ->
+            prefs.getBoolean(key, default)
+        }) { options ->
+            prefs.edit().apply { options.writeTo { key, value -> putBoolean(key, value) } }.apply()
+        }
+        menuButton = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_menu)
+            setBackgroundColor(MENU_BG_COLOR)
+            contentDescription = "Mở bảng hiển thị nhanh"
+            tooltipText = "Hiển thị nhanh"
+            setOnClickListener { if (quickPanel.isOpen) quickPanel.hide() else quickPanel.show() }
+        }
+        val density = resources.displayMetrics.density
+        val menuSize = (MENU_SIZE_DP * density).toInt()
+        val menuMargin = (MENU_MARGIN_DP * density).toInt()
+        root.addView(
+            menuButton,
+            FrameLayout.LayoutParams(menuSize, menuSize, Gravity.BOTTOM or Gravity.START).apply {
+                setMargins(menuMargin, 0, 0, menuMargin)
+            }
+        )
+        // Thêm sau cùng để bảng nằm trên nút ☰ và lớp mờ.
+        root.addView(quickPanel, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
         applyImmersiveMode()
 
@@ -176,6 +205,7 @@ class MainActivity : Activity() {
     override fun onBackPressed() {
         when {
             customView != null -> hideCustomView()
+            quickPanel.isOpen -> quickPanel.hide()
             webView.canGoBack() -> webView.goBack()
             else -> super.onBackPressed()
         }
@@ -207,6 +237,9 @@ class MainActivity : Activity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         pipButton.visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
+        // Cửa sổ PiP nhỏ: ẩn nút ☰ và đóng bảng nếu đang mở.
+        menuButton.visibility = pipButton.visibility
+        if (isInPictureInPictureMode) quickPanel.hide()
     }
 
     override fun onDestroy() {
@@ -296,6 +329,11 @@ class MainActivity : Activity() {
         const val TAG_AD_BLOCK = "AdBlock"
         const val TAG_PLAYBACK = "Playback"
         const val STOP_DELAY_MS = 1000L
+        const val PREFS_DISPLAY = "display_options"
+        const val MENU_SIZE_DP = 56
+        const val MENU_MARGIN_DP = 24
+        // Màu tạm, chờ design-system/MASTER.md (chưa có trong repo).
+        const val MENU_BG_COLOR = 0xFFF2F2F2.toInt()
 
         /** Bấm phát/tạm dừng video đầu tiên trên trang (dùng cho nút PiP). */
         const val TOGGLE_JS =
