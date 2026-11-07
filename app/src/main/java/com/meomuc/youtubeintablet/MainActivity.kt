@@ -4,7 +4,9 @@ import android.app.Activity
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -28,7 +30,21 @@ class MainActivity : Activity() {
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.webViewClient = WebViewClient()
+        // Google chặn đăng nhập khi UA có dấu hiệu WebView ("; wv", "Version/4.0").
+        webView.settings.userAgentString = webView.settings.userAgentString
+            .replace("; wv", "")
+            .replace("Version/4.0 ", "")
+        // Cookie được lưu trên đĩa, nên phiên đăng nhập còn sau khi đóng và mở lại app.
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                // Chỉ tải web trong WebView. Scheme lạ (intent://, market://) bị bỏ qua
+                // thay vì hiện trang lỗi ERR_UNKNOWN_URL_SCHEME.
+                val scheme = request.url.scheme
+                return scheme != "http" && scheme != "https"
+            }
+        }
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowCustomView(view: View, callback: CustomViewCallback) {
                 if (customView != null) {
