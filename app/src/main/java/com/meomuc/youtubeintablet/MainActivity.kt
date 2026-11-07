@@ -47,6 +47,7 @@ import java.util.Locale
  * Ticket #7: xoay màn hình không tạo lại Activity; báo lỗi mất mạng.
  * Ticket #8: chặn request quảng cáo theo AdBlocker.
  * Ticket #16: lưu vị trí xem dở và nhắc tiếp tục khi mở app (không tự phát).
+ * Ticket #18: mất audio focus (cuộc gọi, app khác) thì tạm dừng; không tự phát lại.
  */
 class MainActivity : Activity() {
 
@@ -54,6 +55,9 @@ class MainActivity : Activity() {
     private lateinit var root: FrameLayout
     private lateinit var pipButton: Button
     private lateinit var resumeStore: ResumeStore
+
+    /** Giữ audio focus khi đang phát; mất focus (cuộc gọi, app khác) thì tạm dừng (ticket #18). */
+    private lateinit var audioFocus: PlaybackAudioFocus
 
     /** Thanh nhắc tiếp tục xem; null khi không hiện. */
     private var resumeBanner: View? = null
@@ -98,6 +102,7 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         resumeStore = ResumeStore(this)
+        audioFocus = PlaybackAudioFocus(this) { webView.evaluateJavascript(PAUSE_JS, null) }
         webView.addJavascriptInterface(PlaybackBridge(), "AndroidPlayback")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -326,6 +331,7 @@ class MainActivity : Activity() {
         isPlaying = playing
         if (playing) hideResumeBanner()
         Log.i(TAG_PLAYBACK, "state=$playing")
+        if (playing) audioFocus.acquire() else audioFocus.release()
         val serviceIntent = Intent(this, PlaybackService::class.java)
         if (playing) {
             // Phát lại trong vòng chờ thì hủy lệnh dừng; tránh dừng rồi bật lại service.
@@ -445,6 +451,13 @@ class MainActivity : Activity() {
   }, 5000);
   ['pause', 'ended'].forEach(function(e){ document.addEventListener(e, saveProgress, true); });
 })();"""
+
+        /**
+         * Tạm dừng khi mất audio focus (ticket #18). Đặt cờ người dùng tạm dừng trước để hook nền
+         * không tự phát lại; sau cuộc gọi video chỉ phát khi người dùng bấm Play.
+         */
+        const val PAUSE_JS =
+            "(function(){var v=document.querySelector('video');if(v&&!v.paused){window.__ytTabletUserPaused=true;v.pause();}})();"
 
         /** Tua tới vị trí đã lưu (giây) rồi phát; chờ tới khi có thẻ video. */
         const val SEEK_JS_TEMPLATE = "(function(p){var tries=0;function go(){var v=document.querySelector('video');" +
