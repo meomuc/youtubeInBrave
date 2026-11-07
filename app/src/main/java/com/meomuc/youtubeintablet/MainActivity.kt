@@ -33,6 +33,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.Toast
 import java.io.ByteArrayInputStream
 
 /**
@@ -44,6 +45,7 @@ import java.io.ByteArrayInputStream
  * Ticket #8: chặn request quảng cáo theo AdBlocker.
  * Ticket #10: nút ☰ mở bảng hiển thị nhanh (4 mục bật/tắt, lưu lại).
  * Ticket #11, #12: ẩn Shorts, bình luận, video đề xuất theo lựa chọn (DisplayFilter).
+ * Ticket #13: hàng đợi cục bộ (PlayQueue) lưu trong SharedPreferences; nút "Thêm vào hàng đợi" trên trang xem video.
  */
 class MainActivity : Activity() {
 
@@ -53,6 +55,11 @@ class MainActivity : Activity() {
     /** Nút ☰ góc dưới bên trái mở bảng hiển thị nhanh (ticket #10). */
     private lateinit var menuButton: ImageButton
     private lateinit var quickPanel: QuickPanel
+    /** Hàng đợi phát cục bộ (ticket #13), tách khỏi playlist YouTube; khôi phục khi mở app. */
+    private lateinit var queue: PlayQueue
+    /** Nút mở bảng hàng đợi, nằm phía trên nút ☰ (ticket #13). */
+    private lateinit var queueButton: Button
+    private lateinit var queuePanel: QueuePanel
     /** Lựa chọn hiển thị hiện tại; đọc từ SharedPreferences khi mở app (ticket #10). */
     private var displayOptions = DisplayOptions()
     /** Engine chặn quảng cáo (ADR 0004); null cho tới khi nạp xong danh sách lọc. */
@@ -93,6 +100,7 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         webView.addJavascriptInterface(PlaybackBridge(), "AndroidPlayback")
+        webView.addJavascriptInterface(QueueBridge(), "AndroidQueue")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 // Chỉ tải web trong WebView. Scheme lạ (intent://, market://) bị bỏ qua
@@ -121,6 +129,7 @@ class MainActivity : Activity() {
                 // Chỉ gắn hook phát nền cho YouTube, không cho trang bên thứ ba.
                 if (Uri.parse(url).host?.endsWith("youtube.com") == true) {
                     view.evaluateJavascript(PLAYBACK_HOOK_JS, null)
+                    view.evaluateJavascript(QUEUE_BAR_JS, null)
                     applyDisplayFilter()
                 }
             }
@@ -185,6 +194,23 @@ class MainActivity : Activity() {
                 setMargins(menuMargin, 0, 0, menuMargin)
             }
         )
+        // Hàng đợi (ticket #13): đọc lại từ SharedPreferences. Mở app không tự phát.
+        queue = PlayQueue(
+            QueueCodec.decode(getSharedPreferences(PREFS_QUEUE, MODE_PRIVATE).getString(KEY_QUEUE_ITEMS, "") ?: "")
+        )
+        queuePanel = QueuePanel(this, queue) { onQueueChanged() }
+        queueButton = Button(this).apply {
+            setBackgroundColor(MENU_BG_COLOR)
+            setOnClickListener { if (queuePanel.isOpen) queuePanel.hide() else queuePanel.show() }
+        }
+        root.addView(
+            queueButton,
+            FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START).apply {
+                setMargins(menuMargin, 0, 0, menuMargin + menuSize + (QUEUE_GAP_DP * density).toInt())
+            }
+        )
+        root.addView(queuePanel, FrameLayout.LayoutParams(MATCH, MATCH))
+        refreshQueueUi()
         // Thêm sau cùng để bảng nằm trên nút ☰ và lớp mờ.
         root.addView(quickPanel, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
@@ -212,6 +238,7 @@ class MainActivity : Activity() {
         when {
             customView != null -> hideCustomView()
             quickPanel.isOpen -> quickPanel.hide()
+            queuePanel.isOpen -> queuePanel.hide()
             webView.canGoBack() -> webView.goBack()
             else -> super.onBackPressed()
         }
@@ -245,7 +272,12 @@ class MainActivity : Activity() {
         pipButton.visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
         // Cửa sổ PiP nhỏ: ẩn nút ☰ và đóng bảng nếu đang mở.
         menuButton.visibility = pipButton.visibility
-        if (isInPictureInPictureMode) quickPanel.hide()
+        queueButton.visibility =
+            if (isInPictureInPictureMode || !displayOptions.showQueue) View.GONE else View.VISIBLE
+        if (isInPictureInPictureMode) {
+            quickPanel.hide()
+            queuePanel.hide()
+        }
     }
 
     override fun onDestroy() {
@@ -259,6 +291,42 @@ class MainActivity : Activity() {
     /** Áp bộ lọc giao diện theo [displayOptions] vào trang YouTube (ticket #11, #12). */
     private fun applyDisplayFilter() {
         webView.evaluateJavascript(DisplayFilter.applyJs(displayOptions), null)
+        // Hàng đợi tắt: ẩn nút thêm vào hàng đợi trên trang và đóng bảng; danh sách vẫn được giữ.
+        webView.evaluateJavascript(queueFlagJs(displayOptions.showQueue), null)
+        if (!displayOptions.showQueue) queuePanel.hide()
+        refreshQueueUi()
+    }
+
+    /** Sau khi hàng đợi đổi: lưu, cập nhật nút và bảng đang mở. */
+    private fun onQueueChanged() {
+        getSharedPreferences(PREFS_QUEUE, MODE_PRIVATE).edit()
+            .putString(KEY_QUEUE_ITEMS, QueueCodec.encode(queue.items))
+            .apply()
+        refreshQueueUi()
+        if (queuePanel.isOpen) queuePanel.render()
+    }
+
+    private fun refreshQueueUi() {
+        queueButton.text = "Hàng đợi (${queue.items.size})"
+        queueButton.visibility = if (displayOptions.showQueue) View.VISIBLE else View.GONE
+    }
+
+    /** Nhận mục từ nút trên trang xem video (ticket #13). Gọi từ luồng WebView. */
+    private inner class QueueBridge {
+        @JavascriptInterface
+        fun add(videoId: String, title: String, next: Boolean) {
+            runOnUiThread {
+                if (!isValidVideoId(videoId)) return@runOnUiThread
+                val item = QueueItem(videoId, title.trim().take(MAX_TITLE_CHARS))
+                if (next) queue.playNext(item) else queue.append(item)
+                onQueueChanged()
+                Toast.makeText(
+                    this@MainActivity,
+                    if (next) "Sẽ phát tiếp theo" else "Đã thêm vào hàng đợi",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 
     /** Trang thông báo mất mạng; liên kết "thử lại" tải lại youtube.com. */
@@ -341,6 +409,48 @@ class MainActivity : Activity() {
         const val TAG_PLAYBACK = "Playback"
         const val STOP_DELAY_MS = 1000L
         const val PREFS_DISPLAY = "display_options"
+        const val PREFS_QUEUE = "play_queue"
+        const val KEY_QUEUE_ITEMS = "items"
+        const val MAX_TITLE_CHARS = 200
+        const val QUEUE_GAP_DP = 12
+
+        /** Bật/tắt khả năng hàng đợi trên trang (ticket #13, #14). */
+        fun queueFlagJs(on: Boolean) =
+            "window.__ytTabletQueueOn=$on;if(window.__ytTabletUpdateQueueBar){window.__ytTabletUpdateQueueBar();}"
+
+        /**
+         * Nút "Thêm vào hàng đợi" và "Phát tiếp theo" trên trang xem video. Chỉ hiện khi /watch và hàng đợi bật.
+         * Lấy id video và tiêu đề tại thời điểm bấm, nên đúng cả khi chuyển video trong SPA.
+         */
+        const val QUEUE_BAR_JS = """(function(){
+  if (window.__ytTabletQueueBar) return;
+  window.__ytTabletQueueBar = true;
+  function send(next){
+    var id = '';
+    try { id = new URL(location.href).searchParams.get('v') || ''; } catch (e) {}
+    var title = (document.title || '').replace(/\s*-\s*YouTube\s*$/, '').trim();
+    if (id) AndroidQueue.add(id, title, next);
+  }
+  function btn(label, next){
+    var b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = 'padding:12px 20px;border:1px solid #ccc;border-radius:24px;background:#fff;color:#222;font:15px sans-serif;';
+    b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); send(next); });
+    return b;
+  }
+  var bar = document.createElement('div');
+  bar.id = 'yt-tablet-queue-bar';
+  bar.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483646;display:none;gap:12px;';
+  bar.appendChild(btn('+ Thêm vào hàng đợi', false));
+  bar.appendChild(btn('Phát tiếp theo', true));
+  (document.documentElement || document.body).appendChild(bar);
+  window.__ytTabletUpdateQueueBar = function(){
+    var on = !!window.__ytTabletQueueOn && location.pathname === '/watch';
+    bar.style.display = on ? 'flex' : 'none';
+  };
+  document.addEventListener('yt-navigate-finish', window.__ytTabletUpdateQueueBar, true);
+  window.__ytTabletUpdateQueueBar();
+})();"""
         const val MENU_SIZE_DP = 56
         const val MENU_MARGIN_DP = 24
         // Màu tạm, chờ design-system/MASTER.md (chưa có trong repo).
