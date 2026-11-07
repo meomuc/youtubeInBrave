@@ -45,6 +45,10 @@ Không dùng iframe player thay website. Không xây máy chủ đồng bộ.
 
 ## 5. Progress Log
 
+* [07/11/2026 - 18:10] | Phase: 1 — MVP | Status: Tickets #4 (một phần), #5, #6, #7 (xong), #8 (phần chặn và cách đo) đã có mã và kiểm chứng trên emulator
+  - Hoàn thành: phát nền qua service foreground; PiP khi Home và nút PiP trong app; xoay màn hình giữ trang; báo mất mạng; chặn request quảng cáo theo tên miền (6 unit test).
+  - Còn lại: nghiệm thu trên thiết bị thật (ticket #9); đăng nhập Google đầy đủ (ticket #4, cần tài khoản); số liệu quảng cáo còn sót (ticket #8); thoát app dừng service, nút PiP trong app và quay lại từ PiP (ticket #5, #6).
+
 * [07/11/2026 - 17:46] | Phase: 1 — MVP | Status: Ticket #3 (youtube.com toàn màn hình trong WebView) xong
   - Hoàn thành: WebView tải youtube.com, ẩn thanh hệ thống, Back theo lịch sử WebView, hết lịch sử thì thoát; kiểm chứng trên Pad_Android15.
   - Tiếp theo: Ticket #4 (đăng nhập Google trong WebView). Chưa có issue, chờ tạo.

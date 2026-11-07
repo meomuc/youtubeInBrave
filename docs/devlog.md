@@ -1,5 +1,40 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [07/11/2026 - 18:10] - Task: Tickets #5, #6, #8 — Phát nền, PiP, chặn quảng cáo theo danh sách (Cấp: L)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/test/`
+  - File tạo/sửa:
+    - `AdBlocker.kt` — danh sách tên miền quảng cáo, `isBlocked(url)` (ticket #8).
+    - `AdBlockerTest.kt` — 6 unit test viết trước (đỏ do chưa có `AdBlocker`), sau đó xanh.
+    - `PlaybackService.kt` — foreground service loại `mediaPlayback` (ticket #5).
+    - `MainActivity.kt` — cầu `AndroidPlayback` nhận trạng thái phát; PiP khi `onUserLeaveHint`; nút PiP trong app; `RemoteAction` phát/tạm dừng; chặn request trong `shouldInterceptRequest`; bù tạm dừng khi xuống nền.
+    - `AndroidManifest.xml` — quyền `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`; `supportsPictureInPicture`; khai báo service.
+    - `app/build.gradle.kts` — `testImplementation("junit:junit:4.13.2")`.
+  - Dependencies: JUnit 4.13.2 (chỉ test). Lý do: ticket #8 cần seam kiểm thử được cho logic chặn; dự án chưa có hạ tầng test.
+* **2. Quyết định cốt lõi:**
+  - Phát nền: service foreground chỉ chạy khi `isPlaying`; dừng khi tạm dừng, khi thoát (`onDestroy`).
+  - YouTube tự tạm dừng khi trang bị ẩn. Xử lý bằng hai lớp: (a) giả lập `document.hidden`/`visibilityState` và chặn `visibilitychange`; (b) khi app xuống nền (`onPause` đặt cờ `__ytTabletBg`), trang tự `play()` lại nếu video bị tạm dừng, trừ khi người dùng bấm tạm dừng từ nút PiP (cờ `__ytTabletUserPaused`).
+  - PiP: tỉ lệ 16:9, một nút phát/tạm dừng; cập nhật icon khi trạng thái đổi.
+  - Chặn quảng cáo: chặn theo tên miền (ADR 0003); không chặn `googlevideo.com` hay `youtube.com`. Quảng cáo chèn trong video dùng cùng host với video nên danh sách này không chặn được; đây là giới hạn đã biết, chờ số đo.
+  - Mỗi request bị chặn được ghi log tag `AdBlock` để đếm.
+  - Log tag `Playback` ghi khi trạng thái phát đổi (phục vụ kiểm chứng).
+* **3. Kiểm chứng (Pad_Android15, emulator):**
+  - `./gradlew.bat :app:testDebugUnitTest`: 6/6 pass (`tests="6" failures="0"`).
+  - `./gradlew.bat :app:assembleDebug`: BUILD SUCCESSFUL.
+  - #6, Home khi đang phát: vào PiP (ảnh chụp: video thu nhỏ trên màn hình chính).
+  - #6, nút phát/tạm dừng trong PiP: tạm dừng → log `state=false`, service dừng (`service=0`); phát lại → `state=true`, service chạy lại (`service=3`).
+  - #5, phát nền: khi ở nền, thời gian phát tăng (0:28 → 0:47 trên PiP).
+  - #5, khóa màn hình: service vẫn chạy; Chromium giữ audio focus `USAGE_MEDIA`.
+  - #8: log `AdBlock` ghi nhận request bị chặn khi xem trang (5 dòng trong lần thử đầu).
+  - Chưa kiểm chứng: thoát app (service phải dừng qua `onDestroy`); nút PiP trong app; quay lại app từ PiP; nghe âm thanh thật khi khóa; số liệu quảng cáo còn sót (cần đăng nhập và xem video thật).
+  - Lưu ý thử nghiệm: broadcast từ adb không tới receiver của nút PiP vì receiver đăng ký `RECEIVER_NOT_EXPORTED`. Đó là hành vi đúng, không phải lỗi app; thử qua nút PiP thật thì được.
+* **4. Rủi ro / cần review:**
+  - Cầu `AndroidPlayback` được gắn cho mọi trang trong WebView; trang ngoài youtube.com cũng gọi được `onState`. Hậu quả chỉ là bật/tắt service, nhưng nên giới hạn theo origin nếu thêm chức năng khác.
+  - Cờ `__ytTabletBg` đặt từ `onPause`; nếu WebView chưa kịp nhận JS, video có thể dừng vài trăm ms. Chưa đo thời gian.
+  - Log `state=` và `AdBlock` ghi trong build debug; cân nhắc tắt ở release.
+  - `onBackPressed` còn deprecated (xem mục ticket #3).
+  - Ticket #8 chỉ hoàn thành phần chặn và cách đo; số liệu đo nghiệm thu thuộc ticket #9 (thiết bị thật).
+
 ### [07/11/2026 - 17:46] - Task: Ticket #3 — Mở youtube.com toàn màn hình trong WebView (Cấp: S)
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`
