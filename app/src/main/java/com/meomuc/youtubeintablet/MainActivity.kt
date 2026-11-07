@@ -46,6 +46,7 @@ import java.io.ByteArrayInputStream
  * Ticket #10: nút ☰ mở bảng hiển thị nhanh (4 mục bật/tắt, lưu lại).
  * Ticket #11, #12: ẩn Shorts, bình luận, video đề xuất theo lựa chọn (DisplayFilter).
  * Ticket #13: hàng đợi cục bộ (PlayQueue) lưu trong SharedPreferences; nút "Thêm vào hàng đợi" trên trang xem video.
+ * Ticket #14: video kết thúc khi hàng đợi bật thì phát mục tiếp theo, hết thì dừng (PlayQueue.takeNextOnEnd).
  */
 class MainActivity : Activity() {
 
@@ -340,6 +341,19 @@ class MainActivity : Activity() {
         fun onState(playing: Boolean) {
             runOnUiThread { setPlaying(playing) }
         }
+
+        /** Video kết thúc khi hàng đợi bật (ticket #14). Chỉ được gọi khi trang đã chặn autoplay của YouTube. */
+        @JavascriptInterface
+        fun onEnded() {
+            runOnUiThread { playNextFromQueue() }
+        }
+    }
+
+    /** Phát mục đầu hàng đợi sau khi video kết thúc; hết mục thì dừng (ticket #14). */
+    private fun playNextFromQueue() {
+        val next = queue.takeNextOnEnd(queueOn = displayOptions.showQueue) ?: return
+        onQueueChanged()
+        webView.loadUrl("https://www.youtube.com/watch?v=${next.videoId}")
     }
 
     /** Bật/tắt service phát nền theo trạng thái phát (ticket #5). */
@@ -493,6 +507,18 @@ class MainActivity : Activity() {
     AndroidPlayback.onState(playing);
   }
   ['play', 'playing', 'pause', 'ended'].forEach(function(e){ document.addEventListener(e, report, true); });
+  // Ticket #14: khi hàng đợi bật, chặn sự kiện kết thúc để YouTube không tự phát gợi ý;
+  // app tự phát mục tiếp theo (hoặc dừng khi hết). Hàng đợi tắt thì để YouTube xử lý như cũ.
+  window.addEventListener('ended', function(e){
+    if (!window.__ytTabletQueueOn) return;
+    e.stopImmediatePropagation();
+    if (window.__ytTabletEndSent) return;
+    window.__ytTabletEndSent = true;
+    AndroidPlayback.onState(false);
+    AndroidPlayback.onEnded();
+  }, true);
+  // Video mới bắt đầu phát thì cho phép báo kết thúc lần nữa.
+  window.addEventListener('play', function(){ window.__ytTabletEndSent = false; }, true);
 })();"""
 
         const val OFFLINE_HTML = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>

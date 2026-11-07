@@ -40,6 +40,12 @@ class PlayQueue(initial: List<QueueItem> = emptyList()) {
     /** Lấy và bỏ mục đầu hàng đợi; hàng đợi rỗng thì trả null. */
     fun pollHead(): QueueItem? = if (list.isEmpty()) null else list.removeAt(0)
 
+    /**
+     * Quyết định khi một video kết thúc (ticket #14). Hàng đợi tắt thì không đụng tới danh sách và trả null.
+     * Hàng đợi bật thì lấy mục đầu để phát; hết mục thì trả null, nghĩa là dừng.
+     */
+    fun takeNextOnEnd(queueOn: Boolean): QueueItem? = if (queueOn) pollHead() else null
+
     /** Chuyển mục từ vị trí [from] sang [to]. Chỉ số không hợp lệ thì bỏ qua. */
     fun move(from: Int, to: Int) {
         if (from !in list.indices || to !in list.indices || from == to) return
@@ -61,7 +67,7 @@ object QueueCodec {
     fun encode(items: List<QueueItem>): String =
         items.joinToString("\n") { enc(it.videoId) + "\t" + enc(it.title) }
 
-    /** Đọc lại chuỗi đã mã hóa; dòng sai định dạng hoặc thiếu id video thì bỏ qua. */
+    /** Đọc lại chuỗi đã mã hóa; dòng sai định dạng hoặc id video không hợp lệ thì bỏ qua. */
     fun decode(text: String): List<QueueItem> =
         text.lineSequence()
             .filter { it.isNotBlank() }
@@ -69,7 +75,7 @@ object QueueCodec {
                 val parts = line.split("\t")
                 if (parts.size != 2) return@mapNotNull null
                 val id = dec(parts[0])
-                if (id.isBlank()) null else QueueItem(id, dec(parts[1]))
+                if (isValidVideoId(id)) QueueItem(id, dec(parts[1])) else null
             }
             .toList()
 

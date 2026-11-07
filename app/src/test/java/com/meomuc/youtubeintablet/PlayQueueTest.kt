@@ -87,10 +87,40 @@ class PlayQueueTest {
     @Test
     fun codecRoundTripsTitlesWithSpecialCharacters() {
         val items = listOf(
-            QueueItem("id1", "Tiêu đề có tab\tvà xuống dòng\nvà %ký tự"),
-            QueueItem("id2", ""),
+            QueueItem("dQw4w9WgXcQ", "Tiêu đề có tab\tvà xuống dòng\nvà %ký tự"),
+            QueueItem("aaaaaaaaaaa", ""),
         )
         assertEquals(items, QueueCodec.decode(QueueCodec.encode(items)))
+    }
+
+    @Test
+    fun endOfVideoWithQueueOffDoesNotTouchQueue() {
+        val q = PlayQueue(listOf(item("a"), item("b")))
+        assertNull(q.takeNextOnEnd(queueOn = false))
+        assertEquals(listOf("a", "b"), ids(q))
+    }
+
+    @Test
+    fun endOfVideoWithQueueOnTakesHeadOnce() {
+        val q = PlayQueue(listOf(item("a"), item("b")))
+        assertEquals("a", q.takeNextOnEnd(queueOn = true)?.videoId)
+        assertEquals(listOf("b"), ids(q))
+    }
+
+    @Test
+    fun threeItemsPlayInOrderThenStops() {
+        val q = PlayQueue(listOf(item("A"), item("B"), item("C")))
+        assertEquals("A", q.takeNextOnEnd(queueOn = true)?.videoId)
+        assertEquals("B", q.takeNextOnEnd(queueOn = true)?.videoId)
+        assertEquals("C", q.takeNextOnEnd(queueOn = true)?.videoId)
+        assertNull(q.takeNextOnEnd(queueOn = true))
+        assertEquals(true, q.isEmpty)
+    }
+
+    @Test
+    fun codecDropsItemsWithInvalidVideoIds() {
+        val text = "dQw4w9WgXcQ\tOk\n<script>\tBad\n"
+        assertEquals(listOf(QueueItem("dQw4w9WgXcQ", "Ok")), QueueCodec.decode(text))
     }
 
     @Test
@@ -107,8 +137,8 @@ class PlayQueueTest {
     fun codecDecodesEmptyAndSkipsMalformedLines() {
         assertEquals(emptyList<QueueItem>(), QueueCodec.decode(""))
         assertEquals(
-            listOf(QueueItem("ok", "Được")),
-            QueueCodec.decode("\nkhong-co-tab\n\tthieu-id\nok\t" + java.net.URLEncoder.encode("Được", "UTF-8") + "\n")
+            listOf(QueueItem("dQw4w9WgXcQ", "Được")),
+            QueueCodec.decode("\nkhong-co-tab\n\tthieu-id\ndQw4w9WgXcQ\t" + java.net.URLEncoder.encode("Được", "UTF-8") + "\n")
         )
     }
 }
