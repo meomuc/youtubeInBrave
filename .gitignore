@@ -31,3 +31,7 @@ docs/design-interview.md
 Thumbs.db
 .idea/
 .vscode/
+
+# Native adblock (ADR 0004): thư mục build của crate Rust và .so sinh ra
+native/adblock-jni/target/
+app/src/main/jniLibs/

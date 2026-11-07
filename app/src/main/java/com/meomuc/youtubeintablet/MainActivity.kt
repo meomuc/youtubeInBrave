@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
@@ -46,6 +47,12 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
     private lateinit var pipButton: Button
+    /** Engine chặn quảng cáo (ADR 0004); null cho tới khi nạp xong danh sách lọc. */
+    @Volatile private var adEngine: AdEngine? = null
+
+    /** URL trang đang mở, dùng làm sourceUrl khi kiểm tra request. */
+    @Volatile private var currentPageUrl: String = ""
+
     private val handler = Handler(Looper.getMainLooper())
     private val stopServiceRunnable = Runnable {
         stopService(Intent(this, PlaybackService::class.java))
@@ -87,11 +94,19 @@ class MainActivity : Activity() {
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                // Không chặn trang chính (trang chính không phải quảng cáo); engine chưa sẵn sàng thì cho qua.
+                if (request.isForMainFrame) return null
+                val engine = adEngine ?: return null
                 val url = request.url.toString()
-                if (!AdBlocker.isBlocked(url)) return null
+                val type = RequestTypeMapper.typeOf(url, request.requestHeaders?.get("Accept"))
+                if (!engine.shouldBlock(url, currentPageUrl, type)) return null
                 // Đo: lọc log theo tag AdBlock (adb logcat -s AdBlock) để đếm số request đã chặn.
-                Log.i(TAG_AD_BLOCK, "blocked host=${request.url.host}")
+                Log.i(TAG_AD_BLOCK, "blocked host=${request.url.host} type=$type path=${request.url.encodedPath?.take(80)}")
                 return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+            }
+
+            override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                currentPageUrl = url
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -147,6 +162,13 @@ class MainActivity : Activity() {
             registerReceiver(toggleReceiver, filter)
         }
 
+        // Nạp danh sách lọc (có cache) và tạo engine ngoài luồng chính.
+        Thread {
+            val rules = FilterListLoader.load(cacheDir)
+            adEngine = AdEngine.create(rules)
+            Log.i(TAG_AD_BLOCK, "engine ready=${adEngine != null} chars=${rules.length}")
+        }.start()
+
         webView.loadUrl(START_URL)
     }
 
@@ -190,6 +212,8 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         setPlaying(false)
         unregisterReceiver(toggleReceiver)
+        adEngine?.close()
+        adEngine = null
         super.onDestroy()
     }
 

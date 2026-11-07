@@ -1,0 +1,14 @@
+[package]
+name = "adblock-jni"
+version = "0.1.0"
+edition = "2021"
+description = "Cầu JNI cho engine adblock-rust (ADR 0004)"
+license = "MPL-2.0"
+
+[lib]
+name = "adblock_jni"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+adblock = "0.13.5"
+jni = "0.21"

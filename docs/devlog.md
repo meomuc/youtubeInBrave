@@ -1,5 +1,29 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [07/11/2026 - 18:40] - Task: Chặn quảng cáo bằng engine adblock-rust của Brave qua NDK (ADR 0004) (Cấp: L)
+* **1. Thay đổi:**
+  - Module/thư mục: `native/adblock-jni/` (crate Rust), `native/build-adblock.sh`, `app/src/main/java/.../AdEngine.kt`, `AdEngineNative.kt`, `FilterListLoader.kt`, `RequestTypeMapper.kt`, `MainActivity.kt`; xóa `AdBlocker.kt` và test danh sách tên miền.
+  - File tạo/sửa: `docs/adr/0004-adblock-rust-engine.md` (accepted), `docs/adblock-lists.md`, `.gitignore` (bỏ qua `target/` và `jniLibs/`).
+  - Dependencies: crate `adblock` 0.13.5 (MPL-2.0), `jni` 0.21.1 (Rust); không thêm thư viện Android.
+* **2. Quyết định cốt lõi:**
+  - Brave không nhúng được Shields; dùng engine `adblock-rust` của Brave, đọc EasyList và EasyPrivacy (ADR 0004).
+  - `.so` build bằng `native/build-adblock.sh` cho arm64-v8a và x86_64; không commit binary.
+  - `Engine` có `RefCell` nên `AdEngine` đồng bộ hóa mọi lần gọi.
+  - Không chặn main frame. Loại request suy ra từ đuôi đường dẫn và Accept (WebView API 26 không cung cấp).
+  - Danh sách tải khi mở app, cache 7 ngày; chưa có bản đóng gói sẵn.
+* **3. Kiểm chứng:**
+  - `cargo test` (native/adblock-jni): 4/4 pass. Lưu ý: tôi viết triển khai cùng lúc với test nên không quan sát được giai đoạn đỏ cho crate này.
+  - `./gradlew.bat :app:testDebugUnitTest`: 7/7 pass (`RequestTypeMapperTest`); test đỏ quan sát được (lỗi biên dịch, chưa có lớp) với mapper.
+  - Emulator Pad_Android15: tải EasyList+EasyPrivacy (3,5 triệu ký tự), `engine ready=true`, nạp `libadblock_jni.so` không lỗi, không crash.
+  - Request bị chặn trong một phiên ngắn (21 lần): `/api/stats/ads`, `/ptracking`, `/pagead/`, `/instream/ad_status.js`, `/sodar`, `/pcs/activeview`. Các endpoint này là quảng cáo và theo dõi.
+  - Video vẫn phát sau khi chặn (service phát chạy).
+  - Chưa kiểm chứng: số liệu quảng cáo còn sót (cần đăng nhập và đo theo `docs/adblock-measurement.md`, đo lại vì engine đã đổi); quảng cáo chèn trong video (giới hạn của bộ lọc mạng).
+* **4. Rủi ro / cần review:**
+  - Chưa có scriptlet và bộ lọc cosmetic. Brave dùng các phần này cho quảng cáo YouTube; đây là việc tiếp theo nếu số liệu đo còn cao.
+  - `Log.i` ghi đường dẫn request (tối đa 80 ký tự) để đo; có thể chứa ID video. Tắt hoặc chỉ giữ ở bản debug trước khi phát hành.
+  - Trong lúc chưa tải xong danh sách, request không bị chặn.
+  - Số liệu đo ở ticket #8 cũ (danh sách tên miền) không dùng để so sánh.
+
 ### [07/11/2026 - 18:30] - Task: Ticket #4 và #7 — Đăng nhập Google (một phần) và xoay màn hình, báo mất mạng (Cấp: S/M)
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/main/AndroidManifest.xml`
