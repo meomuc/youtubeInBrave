@@ -11,8 +11,17 @@ object DisplayFilter {
     /** id của thẻ style do app tạo; dùng để cập nhật thay vì thêm thẻ mới mỗi lần. */
     const val STYLE_ID = "yt-tablet-filter"
 
-    /** Các mục Shorts ở trang chủ, tìm kiếm, lịch sử và thanh bên. */
+    /**
+     * Các mục Shorts ở trang chủ, tìm kiếm, lịch sử và thanh bên.
+     * Nhóm đầu: giao diện m.youtube.com (đã kiểm chứng trên DOM qua DevTools):
+     * mục Shorts ở thanh dưới có class pivot-shorts; kệ Shorts là ytm-rich-section-renderer
+     * chứa ytm-shorts-lockup-view-model (kệ đã kiểm tra chỉ chứa thẻ Shorts).
+     * Nhóm sau: giao diện desktop (ytd-*), giữ để dự phòng.
+     */
     private val SHORTS_SELECTORS = listOf(
+        "ytm-pivot-bar-item-renderer:has(.pivot-shorts)",
+        "ytm-rich-section-renderer:has(ytm-shorts-lockup-view-model)",
+        "ytm-shorts-lockup-view-model",
         "ytd-reel-shelf-renderer",
         "ytd-rich-shelf-renderer[is-shorts]",
         "ytd-reel-item-renderer",

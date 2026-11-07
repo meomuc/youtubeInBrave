@@ -15,6 +15,14 @@ class DisplayFilterTest {
     }
 
     @Test
+    fun hidesMobileShortsTabAndShelvesWhenShortsOff() {
+        // Giao diện m.youtube.com (đã kiểm chứng trên DOM): mục thanh dưới, kệ Shorts và thẻ Shorts.
+        val css = DisplayFilter.css(DisplayOptions(showShorts = false))
+        assertTrue(css.contains("ytm-pivot-bar-item-renderer:has(.pivot-shorts)"))
+        assertTrue(css.contains("ytm-rich-section-renderer:has(ytm-shorts-lockup-view-model)"))
+    }
+
+    @Test
     fun showsShortsWhenShortsOn() {
         assertFalse(DisplayFilter.css(DisplayOptions(showShorts = true)).contains("ytd-reel-shelf-renderer"))
     }
