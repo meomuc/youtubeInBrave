@@ -4,7 +4,7 @@
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`
   - File tạo/sửa:
-    - `MainActivity.kt` — thay khung chữ bằng WebView tải `https://www.youtube.com/`; bật JavaScript và DOM storage; ẩn thanh hệ thống (immersive); Back quay lại lịch sử WebView, hết lịch sử thì thoát; `WebChromeClient` xử lý video toàn màn hình; giữ trạng thái WebView khi `onSaveInstanceState`.
+    - `MainActivity.kt` — thay khung chữ bằng WebView tải `https://www.youtube.com/`; bật JavaScript và DOM storage; ẩn thanh hệ thống (immersive); Back quay lại lịch sử WebView, hết lịch sử thì thoát; `WebChromeClient` xử lý video toàn màn hình (chưa kiểm chứng, xem mục 3). Đã gỡ lưu/khôi phục trạng thái WebView và nhánh `else` không dùng của hàm ẩn thanh hệ thống, theo nhận xét review Spec/Standards.
     - `CHANGELOG.md` — mục Added cho bản Unreleased.
     - `docs/devlog.md` — mục này.
   - Dependencies: Không (chỉ dùng API `android.webkit` có sẵn).
@@ -18,9 +18,13 @@
   - Cài trên `Pad_Android15` (`adb install -r`): Success; mở app không có `AndroidRuntime` lỗi.
   - Ảnh chụp: trang youtube.com tải được, không có thanh địa chỉ (`ticket3-home.png`).
   - Back: mở tab Shorts rồi bấm Back → quay về trang chủ, app vẫn chạy; Back tiếp → app thoát về launcher.
-  - Chưa kiểm chứng: video toàn màn hình (nút fullscreen của YouTube) và đăng nhập Google.
+  - Đã thử nút toàn màn hình của video (3 lần bấm trên trình phát): không thấy app vào chế độ toàn màn hình, ảnh không rõ thanh điều khiển. Coi là CHƯA kiểm chứng; không ghi vào CHANGELOG.
+  - Chưa kiểm chứng: đăng nhập Google (ticket #4).
 * **4. Rủi ro / cần review:**
   - `onBackPressed` là API cũ; nếu nâng targetSdk lên 36+ thì chuyển sang `OnBackPressedDispatcher`.
+  - Nút toàn màn hình của video là việc còn mở; cần kiểm chứng riêng (cách bấm, hoặc đo bằng `adb shell uiautomator dump`).
+  - Commit `898bdfc` có mô tả tiếng Việt; AGENTS.md yêu cầu commit message tiếng Anh. Không viết lại commit đã push (cần force push); sẽ dùng tiếng Anh từ commit sau.
+  - Mục này ghi cấp S, nhưng diff ~100 dòng và đổi hành vi; đáng lẽ là M (cần `/ecc:plan`).
   - Đăng nhập Google có thể bị chặn vì WebView; kiểm tra ở ticket #4.
 
 ### [07/11/2026 - 17:46] - Task: Ticket #2 — Khung app Android chạy được trên emulator (Cấp: S) — ghi bù

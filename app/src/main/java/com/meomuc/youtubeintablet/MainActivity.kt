@@ -39,7 +39,7 @@ class MainActivity : Activity() {
                 customViewCallback = callback
                 root.addView(view, FrameLayout.LayoutParams(MATCH, MATCH))
                 webView.visibility = View.GONE
-                applyImmersiveMode(true)
+                applyImmersiveMode()
             }
 
             override fun onHideCustomView() {
@@ -50,13 +50,9 @@ class MainActivity : Activity() {
         root = FrameLayout(this)
         root.addView(webView, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
-        applyImmersiveMode(true)
+        applyImmersiveMode()
 
-        if (savedInstanceState != null) {
-            webView.restoreState(savedInstanceState)
-        } else {
-            webView.loadUrl(START_URL)
-        }
+        webView.loadUrl(START_URL)
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
@@ -68,15 +64,10 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        webView.saveState(outState)
-    }
-
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         // Hệ thống có thể hiện lại thanh trạng thái sau khi người dùng chạm vào cạnh màn hình.
-        if (hasFocus) applyImmersiveMode(true)
+        if (hasFocus) applyImmersiveMode()
     }
 
     private fun hideCustomView() {
@@ -86,22 +77,19 @@ class MainActivity : Activity() {
         customViewCallback?.onCustomViewHidden()
         customViewCallback = null
         webView.visibility = View.VISIBLE
-        applyImmersiveMode(true)
+        applyImmersiveMode()
     }
 
     /** Ẩn thanh trạng thái và thanh điều hướng để trang chiếm toàn màn hình. */
     @Suppress("DEPRECATION")
-    private fun applyImmersiveMode(enabled: Boolean) {
-        window.decorView.systemUiVisibility = if (enabled) {
+    private fun applyImmersiveMode() {
+        window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_FULLSCREEN or
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        } else {
-            View.SYSTEM_UI_FLAG_VISIBLE
-        }
     }
 
     private companion object {
