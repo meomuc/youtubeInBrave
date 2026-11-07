@@ -24,6 +24,7 @@ import android.util.Log
 import android.util.Rational
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -95,6 +96,10 @@ class MainActivity : Activity() {
 
     /** URL trang đang mở, dùng làm sourceUrl khi kiểm tra request. */
     @Volatile private var currentPageUrl: String = ""
+
+    /** true khi là bản debug (dùng cho chế độ học phím và gỡ lỗi WebView). */
+    private val isDebuggable: Boolean
+        get() = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     private val handler = Handler(Looper.getMainLooper())
     private val stopServiceRunnable = Runnable {
@@ -291,6 +296,20 @@ class MainActivity : Activity() {
             webView.canGoBack() -> webView.goBack()
             else -> super.onBackPressed()
         }
+    }
+
+    /**
+     * Chế độ học phím (chỉ bản debug): hiện tên phím và ghi log mỗi lần nhấn xuống.
+     * Dùng để biết mã phím của nút vô lăng trên xe (plan-android-box.md, bước 1).
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && isDebuggable) {
+            val name = KeyEvent.keyCodeToString(event.keyCode)
+            val text = "Phím: $name (${event.keyCode}) scan=${event.scanCode} src=${event.source}"
+            Log.i(TAG_KEY_LEARN, text)
+            Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     /** Bấm Home hoặc chuyển app khi đang phát thì vào PiP (ticket #6). */
@@ -612,6 +631,7 @@ class MainActivity : Activity() {
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         const val ACTION_TOGGLE = "com.meomuc.youtubeintablet.TOGGLE_PLAYBACK"
         const val TAG_AD_BLOCK = "AdBlock"
+        const val TAG_KEY_LEARN = "KeyLearn"
         const val TAG_PLAYBACK = "Playback"
         const val STOP_DELAY_MS = 1000L
         const val PREFS_DISPLAY = "display_options"
