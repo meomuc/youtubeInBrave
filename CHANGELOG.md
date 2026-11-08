@@ -4,6 +4,8 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-08
+
 ### Fixed
 - Video không còn tự dừng và tiếng không còn bị đứt khi ở chế độ PiP: YouTube không tự tạm dừng được trong cửa sổ PiP, và app không còn ép phát lại liên tục ở nền.
 
