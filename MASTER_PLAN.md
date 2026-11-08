@@ -4,7 +4,7 @@
 
 - **Mã dự án:** youtubeInBrave
 - **Tên làm việc:** Ứng dụng YouTube cho Xiaomi Pad 7 Pro (tên và icon cuối cùng chưa chốt, có thể đổi sau)
-- **Trạng thái:** Giai đoạn thiết kế đã xác nhận; chưa có mã nguồn
+- **Trạng thái:** Phase 1 đang làm; đã có mã nguồn, bản release mới nhất v0.1.2 (debug build)
 - **Tầm nhìn:** APK dùng cá nhân, mở website YouTube như một ứng dụng chuyên dụng trên máy tính bảng Android, có phát nền, PiP, hàng đợi cục bộ và bảng hiển thị nhanh.
 - **Nỗi đau người dùng:** Website YouTube trên trình duyệt thiếu phát nền và PiP ổn định trên tablet; giao diện nhiều thành phần không cần thiết; không có hàng đợi tách khỏi playlist.
 - **Tài liệu gốc:** [docs/app-design.md](docs/app-design.md) (đã xác nhận 2026-11-07); quyết định kiến trúc: [ADR 0002](docs/adr/0002-pure-android-app.md) (app Android thuần, thay ADR 0001), [ADR 0003](docs/adr/0003-webview-engine.md) (WebView)
@@ -40,10 +40,15 @@ Không dùng iframe player thay website. Không xây máy chủ đồng bộ.
 ## 4. Current Active Focus
 
 - **Phase:** 1 — MVP
-- **Việc đang làm:** Chuẩn bị Bước 1 — chờ xác nhận môi trường build (WSL Ubuntu, dung lượng, thời gian) và thông tin Android/HyperOS của thiết bị.
-- **Ticket:** Chưa tạo (chưa qua `/to-spec` và `/to-tickets`).
+- **Việc đang làm:** Nghiệm thu Bước 1 và Bước 2 trên thiết bị thật (Xiaomi Pad 7 Pro, box Carlinkit Android 13 trên VF8). Mã phím vô lăng đang chờ bước học phím trên box.
+- **Ticket:** Kế hoạch box và vô lăng ở `.scratch/plan-android-box.md`; nhóm Bước 2 ở `.scratch/multi-agent-summary.md`. Chưa có `.scratch/tickets/`.
 
 ## 5. Progress Log
+
+* [08/11/2026 - 16:04] | Phase: 1 — MVP | Status: Bước 2 có mã (hàng đợi, lời nhắc xem dở, bảng hiển thị nhanh, lỗi và mạng, MediaSession vô lăng); sửa PiP đã xác nhận trên thiết bị; v0.1.2 đã release
+  - Hoàn thành: sửa app thoát khi sắp xếp hàng đợi và chạm tên để phát; Material 3 và icon Phosphor; điều khiển vô lăng qua MediaSession, quyền thông báo Android 13; sửa video không phát do audio focus; sửa tiếng đứt và video tự dừng khi PiP (chặn pause của YouTube trong PiP, gỡ log chẩn đoán); release v0.1.2-debug.
+  - Còn lại: mã phím vô lăng thật trên box; kiểm tra trên box (phát nền, PiP, WebView, Google login, 1920×1080); Shorts còn hiện khi công tắc tắt; nghiệm thu các ticket #11, #12, #14, #16, #17, #18 trên YouTube thật; nghiệm thu #19 trên Xiaomi Pad 7 Pro.
+  - Chi tiết: `docs/devlog.md` (08/11/2026) và `CHANGELOG.md`.
 
 * [07/11/2026 - 18:10] | Phase: 1 — MVP | Status: Tickets #4 (một phần), #5, #6, #7, #8 (phần chặn và cách đo) đã có mã; kiểm chứng một phần trên emulator, còn mục chưa kiểm chứng ghi trong devlog
   - Hoàn thành: phát nền qua service foreground; PiP khi Home và nút PiP trong app; xoay màn hình giữ trang; báo mất mạng; chặn request quảng cáo theo tên miền (6 unit test).
