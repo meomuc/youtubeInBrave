@@ -5,6 +5,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 ## [Unreleased]
 
 ### Changed
+- Đổi tên app thành "VF8 tube" và thiết kế icon mới: tam giác phát trắng trên nền than chì (icon adaptive, có chế độ đơn sắc cho Android 13).
 - Giao diện native theo Material 3: bảng hiển thị nhanh và bảng hàng đợi dùng thẻ và công tắc Material; nút nổi và banner tiếp tục xem đổi kiểu; sáng/tối và Dynamic Color theo hệ thống.
 - Icon của app dùng bộ Phosphor thay cho icon hệ thống (nút PiP, thông báo phát nền).
 

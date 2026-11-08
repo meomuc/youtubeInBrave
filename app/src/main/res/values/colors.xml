@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nền icon app: than chì đậm, không dùng màu đỏ để tránh nhầm với thương hiệu YouTube. -->
+    <color name="ic_launcher_background">#FF101827</color>
+</resources>
