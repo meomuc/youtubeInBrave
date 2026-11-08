@@ -571,7 +571,8 @@ class MainActivity : Activity() {
         isPlaying = playing
         if (playing) hideResumeBanner()
         Log.i(TAG_PLAYBACK, "state=$playing")
-        if (playing) audioFocus.acquire() else audioFocus.release()
+        // TẠM THỜI (thử nghiệm): không xin audio focus ở đây. Chromium tự xin focus, listener của app nhận LOSS và tự pause.
+        // if (playing) audioFocus.acquire() else audioFocus.release()
         val serviceIntent = Intent(this, PlaybackService::class.java)
         if (playing) {
             // Phát lại trong vòng chờ thì hủy lệnh dừng; tránh dừng rồi bật lại service.
