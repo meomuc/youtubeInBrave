@@ -1,5 +1,24 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [08/11/2026 - 11:43] - Task: Ignore thư mục nháp/worktree, push và publish bản build debug v0.1.0-debug (Cấp: S)
+* **1. Thay đổi:**
+  - Module/thư mục: thư mục gốc, `.gitignore`, GitHub Release `v0.1.0-debug`
+  - File tạo/sửa: `.gitignore` — thêm `.scratch/` và `.claude/worktrees/` (commit `4628390`, đã push `integration/buoc-1`); `docs/devlog.md` — mục này.
+  - Dependencies: Không.
+* **2. Quyết định cốt lõi:**
+  - Không tạo branch `main`: repo chưa có `main` ở local lẫn GitHub; chờ người dùng quyết định.
+  - Bản build đưa lên dạng pre-release đính kèm APK, không commit APK (`*.apk` đã bị ignore). APK debug ký bằng debug key; `buildTypes.release` chưa có signing config nên không dùng bản release.
+  - Chạy lại test với `--rerun` để tránh kết quả cache `UP-TO-DATE`.
+* **3. Kiểm chứng:**
+  - `git ls-remote --heads origin`: `integration/buoc-1` = `4628390`, khớp HEAD local.
+  - `./gradlew.bat :app:testDebugUnitTest --rerun`: 62 test, 0 failures, 0 errors (10 class test).
+  - `./gradlew.bat :app:assembleDebug`: BUILD SUCCESSFUL; APK `app-debug.apk`, SHA-256 `5fe25ad42a0c66c45e71ee53ea45c7b11377a4d42a709a2bc875aec7ff57633f` (bản đính kèm release).
+  - `gh release view v0.1.0-debug`: pre-release, 1 asset `youtube-in-tablet-0.1.0-debug.apk`. URL: https://github.com/meomuc/youtubeInBrave/releases/tag/v0.1.0-debug
+* **4. Rủi ro / cần review:**
+  - Release là bề mặt công khai; repo `meomuc/youtubeInBrave` (chưa kiểm tra visibility) — APK debug có log `Log.i` đường dẫn request (xem mục ADR 0004), không nên phân phối rộng.
+  - Các branch `worktree-agent-*` chỉ ở local, chưa push.
+  - Git cảnh báo LF → CRLF khi chạm `.gitignore`; chưa có `.gitattributes`.
+
 ### [07/11/2026 - 18:40] - Task: Chặn quảng cáo bằng engine adblock-rust của Brave qua NDK (ADR 0004) (Cấp: L)
 * **1. Thay đổi:**
   - Module/thư mục: `native/adblock-jni/` (crate Rust), `native/build-adblock.sh`, `app/src/main/java/.../AdEngine.kt`, `AdEngineNative.kt`, `FilterListLoader.kt`, `RequestTypeMapper.kt`, `MainActivity.kt`; xóa `AdBlocker.kt` và test danh sách tên miền.
