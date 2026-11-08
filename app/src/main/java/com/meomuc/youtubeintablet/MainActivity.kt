@@ -570,20 +570,28 @@ class MainActivity : Activity() {
 
     /** Bật/tắt service phát nền theo trạng thái phát (ticket #5). */
     private fun setPlaying(playing: Boolean) {
-        if (playing == isPlaying) return
+        val effects = PlaybackStateRules.effectsFor(wasPlaying = isPlaying, playing = playing)
+        if (effects.isEmpty()) return
         isPlaying = playing
-        if (playing) hideResumeBanner()
         Log.i(TAG_PLAYBACK, "state=$playing")
-        val serviceIntent = Intent(this, PlaybackService::class.java)
-        if (playing) {
-            // Phát lại trong vòng chờ thì hủy lệnh dừng; tránh dừng rồi bật lại service.
-            handler.removeCallbacks(stopServiceRunnable)
-            startForegroundService(serviceIntent)
-        } else {
-            handler.postDelayed(stopServiceRunnable, STOP_DELAY_MS)
+        effects.forEach { applyEffect(it) }
+    }
+
+    /** Thực hiện một hiệu ứng do [PlaybackStateRules] quyết định. */
+    private fun applyEffect(effect: PlaybackEffect) {
+        when (effect) {
+            PlaybackEffect.HIDE_RESUME_BANNER -> hideResumeBanner()
+            PlaybackEffect.START_SERVICE -> {
+                // Phát lại trong vòng chờ thì hủy lệnh dừng; tránh dừng rồi bật lại service.
+                handler.removeCallbacks(stopServiceRunnable)
+                startForegroundService(Intent(this, PlaybackService::class.java))
+            }
+            PlaybackEffect.SCHEDULE_STOP -> handler.postDelayed(stopServiceRunnable, STOP_DELAY_MS)
+            PlaybackEffect.REFRESH_PIP -> {
+                // Cập nhật nút phát/tạm dừng trong PiP nếu đang ở PiP.
+                if (isInPictureInPictureMode) setPictureInPictureParams(buildPipParams())
+            }
         }
-        // Cập nhật nút phát/tạm dừng trong PiP nếu đang ở PiP.
-        if (isInPictureInPictureMode) setPictureInPictureParams(buildPipParams())
     }
 
     private fun enterPip() {
