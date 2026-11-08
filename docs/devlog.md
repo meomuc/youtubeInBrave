@@ -1,5 +1,58 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [08/11/2026 - 12:17] - Task: Thiết kế lại giao diện native theo Material 3, icon Phosphor (Cấp: L)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/main/res/`, thư mục gốc (`DESIGN.md`), `design-system/`, `docs/`
+  - File tạo/sửa:
+    - `QuickPanel.kt` — viết lại: `MaterialCardView` + `MaterialSwitch`, icon Phosphor theo hàng, vùng chạm 56dp, màu từ theme.
+    - `QueuePanel.kt` — viết lại: `MaterialCardView`, nút icon tonal (`materialIconButtonFilledTonalStyle`), giữ nguyên logic kéo thả, phát tiếp theo, xóa.
+    - `MainActivity.kt` — nút nổi thành `MaterialButton`; banner tiếp tục xem thành `MaterialCardView` với nút chữ "Tiếp tục" và "Bỏ qua"; PiP dùng `ic_ph_pause`/`ic_ph_play`; bật `DynamicColors.applyToActivityIfAvailable`; bỏ hằng màu cứng và import thừa.
+    - `PlaybackService.kt` — icon thông báo `ic_ph_play` thay cho `android.R.drawable`.
+    - `res/values/themes.xml` (tạo) — `Theme.YoutubeTablet` kế thừa `Theme.Material3.DayNight.NoActionBar`; `AndroidManifest.xml` khai báo theme.
+    - `res/drawable/ic_ph_pause.xml`, `ic_ph_video.xml`, `ic_ph_chat_circle.xml`, `ic_ph_squares_four.xml` (tạo, lấy từ Phosphor 2.1.1 qua CDN).
+    - `app/build.gradle.kts` — thêm `com.google.android.material:material:1.12.0`.
+    - `DESIGN.md` (tạo), `design-system/MASTER.md` (tạo), `docs/ui-icons.md`, `CHANGELOG.md`.
+  - Dependencies: `com.google.android.material:material:1.12.0`. Lý do: chủ dự án chọn Material 3 chuẩn; Views thuần không có switch, card, button Material 3.
+* **2. Quyết định cốt lõi:**
+  - Giữ Android Views (không chuyển sang Compose): code hiện tại là Views, không cần thêm Compose để đổi giao diện.
+  - Thế giới thị giác là Material 3 chuẩn, thay cho "lưới kỹ thuật" trong surface brief. Ghi trong `DESIGN.md`.
+  - UI UX Pro Max không có trên máy (không có `search.py`), dùng skill `impeccable` và quy tắc `AGENTS.md`; `design-system/MASTER.md` viết tay.
+  - Chữ trên các nút quan trọng (Tiếp tục, Bỏ qua) để không phụ thuộc icon (AGENTS.md: icon đứng một mình phải có nhãn).
+* **3. Kiểm chứng:**
+  - `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --rerun`: BUILD SUCCESSFUL; 77 test, 0 failures, 0 errors.
+  - Emulator 1280x800, chế độ sáng và tối (`cmd uimode night`): chụp `ui-home-light.png`, `ui-quick-light.png`, `ui-queue-light.png`, `ui-quick-dark.png` trong scratchpad. Quan sát: card, switch, icon và nút đúng theo M3; banner có nhãn chữ; chế độ tối tương phản đủ.
+  - Chưa kiểm chứng: Xiaomi Pad 7 Pro; cỡ chữ hệ thống lớn (`font_scale`); Dynamic Color trên hình nền thật; hiệu ứng gợn bằng cảm ứng trên màn hình xe; PiP icon trên thiết bị thật.
+* **4. Rủi ro / cần review:**
+  - Bảng hàng đợi cao 70% màn hình, nhiều khoảng trống khi ít mục; có thể thu gọn theo số mục.
+  - Màu mặc định của Material 3 (tím) là bảng màu chuẩn; chưa có màu thương hiệu, cần chủ dự án chọn nếu muốn khác.
+  - Viền và màu nút trên trang YouTube (JS) vẫn theo bảng màu tạm trong `docs/ui-icons.md`; không đồng bộ với theme native.
+
+### [08/11/2026 - 12:05] - Task: Tái cấu trúc MainActivity theo Clean Architecture, bước 1–3 (Cấp: M)
+### [08/11/2026 - 12:05] - Task: Tái cấu trúc MainActivity theo Clean Architecture, bước 1–3 (Cấp: M)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/assets/js/`, `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/test/java/com/meomuc/youtubeintablet/`
+  - File tạo/sửa:
+    - Bước 1: `assets/js/playback_hook.js`, `assets/js/toggle.js` (tạo; nội dung lấy từ raw string cũ); `JsAssets.kt` (tạo); `MainActivity.kt` — bỏ `PLAYBACK_HOOK_JS`, `TOGGLE_JS`, đọc từ assets trong `onCreate`; `JsAssetsTest.kt` (tạo).
+    - Bước 2: `ResumeRules.kt` — thêm `sanitizeLoaded`, `shouldClear`, interface `ResumeRepository`, `InMemoryResumeRepository`; `ResumeStore` implement interface; `MainActivity.kt` dùng kiểu `ResumeRepository`; `ResumeRepositoryTest.kt` (tạo).
+    - Bước 3: `PlaybackStateRules.kt` (tạo: enum `PlaybackEffect`, `effectsFor`); `MainActivity.kt` — `setPlaying` dùng quy tắc, `applyEffect` thực hiện; `PlaybackStateRulesTest.kt` (tạo).
+  - Dependencies: Không.
+* **2. Quyết định cốt lõi:**
+  - Bước 1: chỉ chuyển JS tĩnh; `QueueWebScript.SCRIPT` giữ nguyên vì được nội suy từ `WatchLinkRules` và `PhosphorIcons`.
+  - Bước 2: `ResumeStore.clearIf` nay dựa trên `load()`. Khác biệt nhỏ: bản ghi thiếu title trước đây vẫn bị xóa khi trùng video, nay không bị xóa, nhưng `load()` vẫn trả null nên không ảnh hưởng hiển thị.
+  - Bước 3: quyết định hiệu ứng (ẩn banner, khởi động service, hẹn dừng, làm mới PiP) nằm trong hàm thuần có test; thứ tự hiệu ứng được khóa bằng test.
+  - Bước 3 chưa đổi phần MediaSession (bước 3 của kế hoạch phát vô lăng); đó là việc riêng.
+* **3. Kiểm chứng:**
+  - Sau mỗi bước: `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --rerun`: BUILD SUCCESSFUL. Tổng test: 66 → 69 (bước 1) → 74 (bước 2) → 77 (bước 3), 0 failures, 0 errors.
+  - Test đỏ quan sát được trước mỗi bước: `JsAssetsTest` (file chưa có), `ResumeRepositoryTest` (lỗi biên dịch: thiếu hàm), `PlaybackStateRulesTest` (thiếu `PlaybackEffect`).
+  - Emulator sau bước 1: `video` phát (t tăng), cờ `__ytTabletHooked=true` xác nhận script từ assets đã chạy.
+  - Emulator sau bước 3: logcat `Playback: state=true` lúc phát, `state=false` lúc tạm dừng.
+  - `MainActivity.kt`: 761 → 693 dòng.
+  - Chưa kiểm chứng: PiP, banner tiếp tục xem, service phát nền trên box thật.
+* **4. Rủi ro / cần review:**
+  - `auto-commit.sh` (SessionEnd) tự `git add -A`, commit và push `origin HEAD`. Hai commit `297ff75` và `321d01b` đã được push lên `integration/buoc-1` mà chưa qua test trên box.
+  - Commit bước 1–3 (`d9ec964`, `8a603fd`, `7b7034f`) sẽ bị push cùng lúc khi kết thúc phiên.
+  - Chưa có ViewModel hay tầng domain đầy đủ; các bước này chỉ tách logic thuần khỏi Activity.
+
 ### [08/11/2026 - 11:56] - Task: Sửa video không phát (audio focus tự pause) và gỡ PlaybackAudioFocus (Cấp: S)
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/test/java/com/meomuc/youtubeintablet/`

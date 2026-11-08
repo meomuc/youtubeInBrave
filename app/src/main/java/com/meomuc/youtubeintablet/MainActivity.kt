@@ -12,7 +12,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
@@ -36,11 +35,15 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
-import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.widget.TextViewCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.color.DynamicColors
+import com.google.android.material.color.MaterialColors
+import com.google.android.material.R as MaterialR
 import java.io.ByteArrayInputStream
 import java.util.Locale
 
@@ -64,14 +67,14 @@ class MainActivity : Activity() {
 
     private lateinit var webView: WebView
     private lateinit var root: FrameLayout
-    private lateinit var pipButton: ImageButton
+    private lateinit var pipButton: MaterialButton
     /** Nút ☰ góc dưới bên trái mở bảng hiển thị nhanh (ticket #10). */
-    private lateinit var menuButton: ImageButton
+    private lateinit var menuButton: MaterialButton
     private lateinit var quickPanel: QuickPanel
     /** Hàng đợi phát cục bộ (ticket #13), tách khỏi playlist YouTube; khôi phục khi mở app. */
     private lateinit var queue: PlayQueue
     /** Nút mở bảng hàng đợi, nằm phía trên nút ☰ (ticket #13). Chỉ có icon; số mục hiện ở [queueBadge]. */
-    private lateinit var queueButton: ImageButton
+    private lateinit var queueButton: MaterialButton
     /** Huy hiệu số mục trên nút hàng đợi (ticket #19). */
     private lateinit var queueBadge: TextView
     /** Khung chứa nút hàng đợi và huy hiệu; ẩn/hiện cả khung. */
@@ -121,6 +124,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Material You (Android 12+): lấy bảng màu từ hình nền; máy cũ dùng bảng màu tĩnh của theme.
+        DynamicColors.applyToActivityIfAvailable(this)
 
         // Chỉ bản debug: cho phép gỡ lỗi WebView qua Chrome DevTools (kiểm tra selector trên YouTube).
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -241,8 +246,8 @@ class MainActivity : Activity() {
             if (queuePanel.isOpen) queuePanel.hide() else queuePanel.show()
         }
         queueBadge = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            setBackgroundColor(BADGE_BG_COLOR)
+            setTextColor(MaterialColors.getColor(this, MaterialR.attr.colorOnPrimary))
+            setBackgroundColor(MaterialColors.getColor(this, MaterialR.attr.colorPrimary))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             gravity = Gravity.CENTER
             setPadding((BADGE_PADDING_DP * density).toInt(), 0, (BADGE_PADDING_DP * density).toInt(), 0)
@@ -384,17 +389,22 @@ class MainActivity : Activity() {
         queueContainer.visibility = if (displayOptions.showQueue) View.VISIBLE else View.GONE
     }
 
-    /** Nút chỉ có icon Phosphor, cỡ chạm 56dp, nền trung tính; có nhãn đọc màn hình và tooltip (AGENTS.md, mục UI). */
-    private fun iconButton(iconRes: Int, label: String, onClick: () -> Unit): ImageButton {
+    /**
+     * Nút chỉ có icon Phosphor theo kiểu icon tonal của Material 3, cỡ chạm 56dp.
+     * Có nhãn đọc màn hình và tooltip (AGENTS.md, mục UI).
+     */
+    private fun iconButton(iconRes: Int, label: String, onClick: () -> Unit): MaterialButton {
         val density = resources.displayMetrics.density
-        val pad = (ICON_PADDING_DP * density).toInt()
-        return ImageButton(this).apply {
-            setImageResource(iconRes)
-            setBackgroundColor(MENU_BG_COLOR)
+        return MaterialButton(this, null, MaterialR.attr.materialIconButtonFilledTonalStyle).apply {
+            setIconResource(iconRes)
+            iconSize = (ICON_SIZE_DP * density).toInt()
+            iconPadding = 0
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            text = null
             contentDescription = label
             tooltipText = label
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setPadding(pad, pad, pad, pad)
+            minimumWidth = (BUTTON_SIZE_DP * density).toInt()
+            minimumHeight = (BUTTON_SIZE_DP * density).toInt()
             setOnClickListener { onClick() }
         }
     }
@@ -464,26 +474,45 @@ class MainActivity : Activity() {
     /** Thanh nhắc "Xem dở: tên video" với nút Tiếp tục và Bỏ qua (ticket #16). */
     private fun showResumeBanner(point: ResumePoint) {
         if (resumeBanner != null) return
-        val bar = LinearLayout(this).apply {
+        val density = resources.displayMetrics.density
+        val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(BANNER_BG)
-            setPadding(BANNER_PADDING, BANNER_PADDING / 2, BANNER_PADDING, BANNER_PADDING / 2)
+            setPadding((12 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
         }
         val label = TextView(this).apply {
             text = "Xem dở: ${point.title} (${formatPosition(point.positionMs)})"
-            setTextColor(Color.WHITE)
+            TextViewCompat.setTextAppearance(this, MaterialR.style.TextAppearance_Material3_BodyMedium)
+            setTextColor(MaterialColors.getColor(this, MaterialR.attr.colorOnSurface))
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
         }
-        bar.addView(label, LinearLayout.LayoutParams(0, WRAP, 1f))
-        val size = (BUTTON_SIZE_DP * resources.displayMetrics.density).toInt()
-        bar.addView(iconButton(R.drawable.ic_ph_play, "Tiếp tục xem ${point.title}") { resumeVideo(point) },
-            LinearLayout.LayoutParams(size, size))
-        bar.addView(iconButton(R.drawable.ic_ph_x, "Bỏ qua lời nhắc xem dở") { hideResumeBanner() },
-            LinearLayout.LayoutParams(size, size))
-        root.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP))
-        resumeBanner = bar
+        actions.addView(label, LinearLayout.LayoutParams(0, WRAP, 1f))
+        // Nút có nhãn chữ để người dùng hiểu ngay, không chỉ dựa vào icon.
+        actions.addView(MaterialButton(this, null, MaterialR.attr.materialButtonStyle).apply {
+            text = "Bỏ qua"
+            contentDescription = "Bỏ qua lời nhắc xem dở"
+            setOnClickListener { hideResumeBanner() }
+        })
+        actions.addView(MaterialButton(this).apply {
+            text = "Tiếp tục"
+            setIconResource(R.drawable.ic_ph_play)
+            iconSize = (ICON_SIZE_DP * density).toInt()
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            contentDescription = "Tiếp tục xem ${point.title}"
+            setOnClickListener { resumeVideo(point) }
+        })
+        val card = MaterialCardView(this).apply {
+            radius = 16 * density
+            addView(actions)
+        }
+        root.addView(
+            card,
+            FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP).apply {
+                setMargins((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), 0)
+            }
+        )
+        resumeBanner = card
     }
 
     /** Định dạng vị trí cho người dùng đọc: m:ss, hoặc h:mm:ss nếu từ một giờ trở lên. */
@@ -600,7 +629,7 @@ class MainActivity : Activity() {
     /** Tham số PiP: tỉ lệ 16:9 và một nút phát/tạm dừng khớp với trạng thái hiện tại. */
     private fun buildPipParams(): PictureInPictureParams {
         val label = if (isPlaying) "Tạm dừng" else "Phát"
-        val iconRes = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val iconRes = if (isPlaying) R.drawable.ic_ph_pause else R.drawable.ic_ph_play
         val pending = PendingIntent.getBroadcast(
             this, 0, Intent(ACTION_TOGGLE).setPackage(packageName), PendingIntent.FLAG_IMMUTABLE
         )
@@ -654,13 +683,10 @@ class MainActivity : Activity() {
 
         /** Cỡ chạm tối thiểu của nút điều khiển (ticket #20). */
         const val BUTTON_SIZE_DP = 56
-        const val ICON_PADDING_DP = 14
+        const val ICON_SIZE_DP = 24
         const val BADGE_SIZE_DP = 20
         const val BADGE_PADDING_DP = 5
         const val MENU_MARGIN_DP = 24
-        // Màu neutral, chờ design-system/MASTER.md (chưa có trong repo). Xem docs/ui-icons.md.
-        const val MENU_BG_COLOR = 0xFFF2F2F2.toInt()
-        const val BADGE_BG_COLOR = 0xFF0F0F0F.toInt()
 
         /** Đánh dấu app đang ở nền (true) hoặc hiển thị (false) để trang tự phát lại khi bị tạm dừng nền. */
         fun backgroundFlagJs(background: Boolean) = "window.__ytTabletBg=$background;"
@@ -673,8 +699,6 @@ class MainActivity : Activity() {
             "if(v.readyState>=1){seek();}else{v.addEventListener('loadedmetadata',seek,{once:true});}}" +
             "go();})(%.3f);"
 
-        val BANNER_BG: Int = 0xEE222222.toInt()
-        const val BANNER_PADDING = 32
 
         /** Trang lỗi chính; [retryUrl] là URL vừa lỗi để "thử lại" quay về đúng mục (ticket #17). */
         fun offlineHtml(retryUrl: String, network: Boolean): String {

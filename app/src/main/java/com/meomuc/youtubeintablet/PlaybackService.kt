@@ -25,7 +25,7 @@ class PlaybackService : Service() {
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText("Đang phát video")
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(R.drawable.ic_ph_play)
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= 29) {

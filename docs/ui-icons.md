@@ -19,6 +19,10 @@
 | `play` | Tiếp tục xem dở | `res/drawable/ic_ph_play.xml` | — |
 | `x` | Bỏ qua lời nhắc xem dở | `res/drawable/ic_ph_x.xml` | — |
 | `list-plus` | Thêm vào hàng đợi (trang xem video, cover) | `res/drawable/ic_ph_list_plus.xml` (dự phòng) | `PhosphorIcons.path` (dựng DOM) |
+| `pause` | Nút PiP khi đang phát | `res/drawable/ic_ph_pause.xml` | — |
+| `video` | Bảng hiển thị nhanh: công tắc Shorts | `res/drawable/ic_ph_video.xml` | — |
+| `chat-circle` | Bảng hiển thị nhanh: công tắc Bình luận | `res/drawable/ic_ph_chat_circle.xml` | — |
+| `squares-four` | Bảng hiển thị nhanh: công tắc Video đề xuất | `res/drawable/ic_ph_squares_four.xml` | — |
 
 Trang YouTube bật Trusted Types nên KHÔNG gán `innerHTML`. JS dựng `<svg>`/`<path>` bằng `createElementNS` từ path data (test `QueueWebScriptTest` chặn `innerHTML`).
 
@@ -29,8 +33,8 @@ Trang YouTube bật Trusted Types nên KHÔNG gán `innerHTML`. JS dựng `<svg>
 - Path phải giống nhau giữa hai bên. Khi cập nhật Phosphor, tạo lại cả hai từ cùng file SVG.
 - Test `PhosphorIconsTest` kiểm tra path không rỗng và SVG nội tuyến không chứa dấu nháy kép.
 
-## Màu và kích thước (tạm thời)
+## Màu và kích thước
 
-- Nền nút: `#F2F2F2`; icon: `#0F0F0F`; trạng thái bật (nếu cần): `#CC0000`.
-- Cỡ chạm tối thiểu: 56dp (nút native); nút trên trang YouTube: 48px (thanh xem video), 36px (cover).
-- Chưa có `design-system/MASTER.md` trong repo (AGENTS.md yêu cầu). Các giá trị trên là màu tạm, cần đối chiếu khi có token chính thức.
+- Native (giao diện Material 3, xem `DESIGN.md`): icon lấy màu từ theme (`colorOnSurfaceVariant`, `colorOnPrimary`). Các màu `#FF0F0F0F` trong file drawable chỉ là màu gốc, bị ghi đè khi tint.
+- JavaScript trên trang YouTube (không thuộc giao diện native): nền nút `#F2F2F2`, icon `#0F0F0F`. Đây là giá trị tạm, không đổi theo theme.
+- Cỡ chạm tối thiểu: 48dp cho nút và tay cầm trong bảng hàng đợi, 56dp cho nút nổi; trên trang YouTube: 48px (thanh xem video), 36px (cover).

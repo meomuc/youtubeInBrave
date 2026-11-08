@@ -4,6 +4,10 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 
 ## [Unreleased]
 
+### Changed
+- Giao diện native theo Material 3: bảng hiển thị nhanh và bảng hàng đợi dùng thẻ và công tắc Material; nút nổi và banner tiếp tục xem đổi kiểu; sáng/tối và Dynamic Color theo hệ thống.
+- Icon của app dùng bộ Phosphor thay cho icon hệ thống (nút PiP, thông báo phát nền).
+
 ### Fixed
 - Video không phát được (phát xong bị tạm dừng ngay): app không còn tự xin audio focus, để WebView tự quản lý. Đã kiểm chứng trên emulator; chưa kiểm chứng trên box trong xe.
 
