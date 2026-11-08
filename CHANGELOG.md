@@ -5,8 +5,12 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 ## [Unreleased]
 
 ### Added
+- Chạm vào tên một mục trong hàng đợi để phát ngay mục đó; mục chỉ rời hàng đợi khi trang đã tải xong.
 - Nút vô lăng và điều khiển hệ thống: next (mục đầu hàng đợi, hoặc nút tiếp theo của YouTube), previous (tua về đầu hoặc quay lại trang trước), pause. Hỗ trợ khi app ở nền qua MediaSession.
 - Xin quyền thông báo trên Android 13 để thông báo phát nền hiện được.
+
+### Fixed
+- Kéo đổi thứ tự hoặc bấm xóa/phát tiếp theo trong hàng đợi làm app thoát (lỗi layout khi xóa view đang xử lý chạm).
 
 ### Changed
 - Bảng hàng đợi cao theo số mục, tối đa 70% màn hình.

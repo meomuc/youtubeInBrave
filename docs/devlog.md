@@ -1,5 +1,22 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [08/11/2026 - 12:56] - Task: Sửa app thoát khi thao tác hàng đợi; chọn video để phát từ hàng đợi (Cấp: M)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`
+  - File sửa: `QueuePanel.kt` — thêm `deferChange` (đẩy việc đổi danh sách ra sau khi sự kiện chạm kết thúc); nút phát tiếp theo, xóa và kéo dùng `deferChange`; tên mục là vùng chạm "Phát ngay" và tham số `onPlayNow`. `MainActivity.kt` — truyền `onPlayNow`: đưa mục lên đầu hàng đợi (`playNext`) rồi gọi `playNextFromQueue()`. `CHANGELOG.md`, `docs/devlog.md`.
+  - Dependencies: không.
+* **2. Quyết định cốt lõi:**
+  - Nguyên nhân crash: `render()` gọi `removeAllViews()` ngay trong lúc hàng đang xử lý sự kiện chạm của chính nó; ViewRootImpl gặp view đã tách khỏi cây trong lúc đo, `dispatchCollectViewAttributes` ném NPE. Sửa: đẩy thay đổi qua `post`.
+  - Chọn để phát: dùng lại luồng hàng đợi có sẵn thay vì tạo đường mới. Mục được đưa lên đầu và chỉ bị xóa khi `completeQueueLoad` xác nhận trang đã tải, nên mất mạng không làm mất mục.
+* **3. Kiểm chứng:**
+  - Tái hiện trước sửa: kéo "Video B" → app crash, `NullPointerException` trong `dispatchCollectViewAttributes`, stack trace từ `ViewRootImpl.performTraversals`.
+  - Sau sửa (emulator, APK mới): kéo đổi thứ tự thành công, app không crash (0 FATAL); chạm "Video A" → URL `watch?v=HGgGgMDqszw`; hàng đợi giảm còn 2 mục (Video A đã rời).
+  - `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --rerun`: BUILD SUCCESSFUL; 81 test, 0 failures, 0 errors.
+  - Chưa kiểm chứng: xóa và "Phát tiếp theo" sau sửa (cùng đường `deferChange`, chưa thao tác bằng tay); trên box và Pad.
+* **4. Rủi ro / cần review:**
+  - Hàng đợi bị bật tắt (`showQueue` = false): `playNextFromQueue` trả về sớm, nhưng panel đã ẩn nên không gặp trường hợp này từ UI.
+  - Mục không tải được (video không tồn tại): trang vẫn hoàn tất tải, mục bị xóa khỏi hàng đợi như mọi mục khác.
+
 ### [08/11/2026 - 12:29] - Task: Làm nốt việc còn lại: MediaSession vô lăng, quyền thông báo, dọn code, bảng hàng đợi (Cấp: M)
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/test/...`, `app/src/main/AndroidManifest.xml`, `CHANGELOG.md`

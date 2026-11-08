@@ -27,6 +27,8 @@ class QueuePanel(
     context: Context,
     private val queue: PlayQueue,
     private val onChanged: () -> Unit,
+    /** Chạm vào tên một mục: phát mục đó ngay (MainActivity đưa mục lên đầu hàng đợi và tải trang). */
+    private val onPlayNow: (QueueItem) -> Unit,
 ) : FrameLayout(context) {
 
     private val listContainer = LinearLayout(context).apply {
@@ -111,20 +113,23 @@ class QueuePanel(
             setTextColor(colorOnSurface())
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
+            // Chạm vào tên: phát ngay mục này.
+            isClickable = true
+            contentDescription = "Phát ngay: $name"
+            background = context.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                .let { typed -> typed.getDrawable(0).also { typed.recycle() } }
+            setOnClickListener {
+                hide()
+                deferChange { onPlayNow(item) }
+            }
         }
         val playNext = iconButton(R.drawable.ic_ph_skip_forward, "Phát tiếp theo: $name").apply {
             isEnabled = index > 0
             alpha = if (index > 0) 1f else DISABLED_ALPHA
-            setOnClickListener {
-                queue.playNext(item)
-                onChanged()
-            }
+            setOnClickListener { deferChange { queue.playNext(item) } }
         }
         val remove = iconButton(R.drawable.ic_ph_trash, "Xóa khỏi hàng đợi: $name").apply {
-            setOnClickListener {
-                queue.removeAt(index)
-                onChanged()
-            }
+            setOnClickListener { deferChange { queue.removeAt(index) } }
         }
         // Tay cầm kéo đổi thứ tự (ticket #15). Chạm xuống thì ngăn ScrollView cuộn.
         val handle = ImageView(context).apply {
@@ -186,10 +191,9 @@ class QueuePanel(
                 row.translationY = 0f
                 row.alpha = 1f
                 if (event.actionMasked == MotionEvent.ACTION_UP && target != index) {
-                    queue.move(index, target)
-                    onChanged()
+                    deferChange { queue.move(index, target) }
                 } else {
-                    render()
+                    deferChange { render() }
                 }
                 return true
             }
@@ -199,6 +203,18 @@ class QueuePanel(
 
     /** Tọa độ Y tuyệt đối lúc bắt đầu kéo. */
     private var dragStartY = 0f
+
+    /**
+     * Đổi [queue] rồi báo [onChanged] sau khi sự kiện chạm hiện tại kết thúc.
+     * Xóa view ngay trong lúc xử lý chạm của chính view đó làm hỏng layout (NullPointerException
+     * trong ViewGroup.dispatchCollectViewAttributes), nên việc đổi danh sách được đẩy ra sau.
+     */
+    private fun deferChange(change: () -> Unit) {
+        post {
+            change()
+            onChanged()
+        }
+    }
 
     private fun colorOnSurface(): Int =
         MaterialColors.getColor(this, MaterialR.attr.colorOnSurface)

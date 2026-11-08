@@ -248,7 +248,17 @@ class MainActivity : Activity() {
         queue = PlayQueue(
             QueueCodec.decode(getSharedPreferences(PREFS_QUEUE, MODE_PRIVATE).getString(KEY_QUEUE_ITEMS, "") ?: "")
         )
-        queuePanel = QueuePanel(this, queue) { onQueueChanged() }
+        queuePanel = QueuePanel(
+            context = this,
+            queue = queue,
+            onChanged = { onQueueChanged() },
+            onPlayNow = { item ->
+                // Đưa mục đã chọn lên đầu hàng đợi rồi tải như mục tiếp theo: chỉ xóa khỏi hàng đợi khi trang tải xong.
+                queue.playNext(item)
+                onQueueChanged()
+                playNextFromQueue()
+            },
+        )
         queueButton = iconButton(R.drawable.ic_ph_queue, "Mở hàng đợi") {
             if (queuePanel.isOpen) queuePanel.hide() else queuePanel.show()
         }
