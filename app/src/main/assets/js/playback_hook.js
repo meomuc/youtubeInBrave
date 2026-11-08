@@ -1,6 +1,8 @@
 (function(){
   if (window.__ytTabletHooked) return;
   window.__ytTabletHooked = true;
+  // Log chẩn đoán (DiagLog): không làm gì nếu cầu nối chưa có.
+  function dlog(m){ try { AndroidPlayback.debugLog(m); } catch (e) {} }
   // YouTube tự tạm dừng khi trang bị ẩn. Giả lập trang luôn hiển thị để video tiếp tục khi xuống nền.
   try {
     Object.defineProperty(document, 'hidden', {configurable: true, get: function(){ return false; }});
@@ -12,6 +14,7 @@
   document.addEventListener('pause', function(e){
     var v = e.target;
     if (window.__ytTabletBg && !window.__ytTabletUserPaused && v && v.tagName === 'VIDEO') {
+      dlog('bg auto-resume t=' + v.currentTime.toFixed(2));
       v.play().catch(function(){});
     }
   }, true);
@@ -25,6 +28,14 @@
     AndroidPlayback.onState(playing);
   }
   ['play', 'playing', 'pause', 'ended'].forEach(function(e){ document.addEventListener(e, report, true); });
+  // Log chẩn đoán: mọi sự kiện của thẻ video kèm vị trí phát và trạng thái bộ đệm.
+  ['play', 'playing', 'pause', 'waiting', 'stalled', 'ended', 'seeking', 'seeked', 'error'].forEach(function(t){
+    document.addEventListener(t, function(e){
+      var v = e.target;
+      if (!v || v.tagName !== 'VIDEO') return;
+      dlog(t + ' t=' + v.currentTime.toFixed(2) + ' rs=' + v.readyState + ' bg=' + !!window.__ytTabletBg + ' hidden=' + document.hidden);
+    }, true);
+  });
   // Ticket #16: ghi vị trí mỗi 5 giây khi đang phát, và ngay khi tạm dừng hoặc kết thúc.
   function currentVideoId(){
     try { return new URL(location.href).searchParams.get('v'); } catch (e) { return null; }
