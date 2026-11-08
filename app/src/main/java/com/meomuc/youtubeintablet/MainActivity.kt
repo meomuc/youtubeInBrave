@@ -54,7 +54,7 @@ import java.util.Locale
  * Ticket #10: nút ☰ mở bảng hiển thị nhanh (4 mục bật/tắt, lưu lại).
  * Ticket #11, #12: ẩn Shorts, bình luận, video đề xuất theo lựa chọn (DisplayFilter).
  * Ticket #16: lưu vị trí xem dở và nhắc tiếp tục khi mở app (không tự phát).
- * Ticket #18: mất audio focus (cuộc gọi, app khác) thì tạm dừng; không tự phát lại.
+ * Ticket #18: không còn xin audio focus từ app (WebView tự quản lý); việc pause khi có cuộc gọi chưa kiểm chứng.
  * Ticket #13: hàng đợi cục bộ (PlayQueue) lưu trong SharedPreferences; nút "Thêm vào hàng đợi" trên trang xem video.
  * Ticket #14: video kết thúc khi hàng đợi bật thì phát mục tiếp theo, hết thì dừng (PlayQueue.takeNextOnEnd).
  * Ticket #17: video không truy cập được thì bỏ qua sang mục tiếp theo, hoặc về trang chủ nếu là lời nhắc xem dở;
@@ -83,8 +83,6 @@ class MainActivity : Activity() {
     /** Script JS tĩnh, đọc từ assets/js khi tạo Activity (Bước 1). */
     private lateinit var toggleJs: String
     private lateinit var playbackHookJs: String
-
-    /** Giữ audio focus khi đang phát; mất focus (cuộc gọi, app khác) thì tạm dừng (ticket #18). */
 
     /** Thanh nhắc tiếp tục xem; null khi không hiện. */
     private var resumeBanner: View? = null

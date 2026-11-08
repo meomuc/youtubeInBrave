@@ -27,11 +27,10 @@ class ResumeRepositoryTest {
     }
 
     @Test
-    fun shouldClearOnlyForTheSameVideo() {
-        val stored = ResumePoint(id, "T", 10_000L)
-        assertTrue(ResumeRules.shouldClear(stored, id))
-        assertFalse(ResumeRules.shouldClear(stored, other))
-        assertFalse(ResumeRules.shouldClear(stored, null))
+    fun shouldClearOnlyForTheSameVideoId() {
+        assertTrue(ResumeRules.shouldClear(id, id))
+        assertFalse(ResumeRules.shouldClear(id, other))
+        assertFalse(ResumeRules.shouldClear(id, null))
         assertFalse(ResumeRules.shouldClear(null, id))
     }
 

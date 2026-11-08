@@ -1,6 +1,5 @@
 package com.meomuc.youtubeintablet
 
-import android.content.Context
 import kotlin.math.min
 import kotlin.math.roundToLong
 
@@ -42,68 +41,10 @@ object ResumeRules {
         return ResumePoint(videoId, title, positionMs)
     }
 
-    /** Chỉ xóa lời nhắc khi đúng video đang lưu; video khác kết thúc thì giữ nguyên. */
-    fun shouldClear(stored: ResumePoint?, videoId: String?): Boolean =
-        stored != null && videoId != null && stored.videoId == videoId
-}
-
-/** Nơi lưu vị trí xem dở (Bước 2). Tầng Android triển khai bằng SharedPreferences. */
-interface ResumeRepository {
-    fun load(): ResumePoint?
-    fun save(point: ResumePoint)
-    fun clearIf(videoId: String?)
-}
-
-/** Bản trong bộ nhớ, dùng cho kiểm thử. */
-class InMemoryResumeRepository : ResumeRepository {
-    private var point: ResumePoint? = null
-
-    override fun load(): ResumePoint? = point
-
-    override fun save(point: ResumePoint) {
-        this.point = point
-    }
-
-    override fun clearIf(videoId: String?) {
-        if (ResumeRules.shouldClear(point, videoId)) point = null
-    }
-}
-
-/** Lưu một vị trí xem dở bằng SharedPreferences cục bộ (không dùng tài khoản). */
-class ResumeStore(context: Context) : ResumeRepository {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-    override fun load(): ResumePoint? {
-        return try {
-            ResumeRules.sanitizeLoaded(
-                prefs.getString(KEY_VIDEO_ID, null),
-                prefs.getString(KEY_TITLE, null),
-                prefs.getLong(KEY_POSITION_MS, -1L),
-            )
-        } catch (e: RuntimeException) {
-            null
-        }
-    }
-
-    override fun save(point: ResumePoint) {
-        prefs.edit()
-            .putString(KEY_VIDEO_ID, point.videoId)
-            .putString(KEY_TITLE, point.title)
-            .putLong(KEY_POSITION_MS, point.positionMs)
-            .apply()
-    }
-
-    /** Xóa lời nhắc khi đúng video đó đã xem hết; video khác kết thúc thì giữ nguyên. */
-    override fun clearIf(videoId: String?) {
-        if (ResumeRules.shouldClear(load(), videoId)) {
-            prefs.edit().clear().apply()
-        }
-    }
-
-    private companion object {
-        const val PREFS_NAME = "resume"
-        const val KEY_VIDEO_ID = "video_id"
-        const val KEY_TITLE = "title"
-        const val KEY_POSITION_MS = "position_ms"
-    }
+    /**
+     * Chỉ xóa lời nhắc khi đúng video đang lưu theo id; video khác kết thúc thì giữ nguyên.
+     * Dùng id thô trong bộ nhớ, không yêu cầu title hợp lệ, để giữ hành vi cũ.
+     */
+    fun shouldClear(storedVideoId: String?, videoId: String?): Boolean =
+        storedVideoId != null && videoId != null && storedVideoId == videoId
 }
