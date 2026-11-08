@@ -82,7 +82,6 @@ class MainActivity : Activity() {
     private lateinit var resumeStore: ResumeStore
 
     /** Giữ audio focus khi đang phát; mất focus (cuộc gọi, app khác) thì tạm dừng (ticket #18). */
-    private lateinit var audioFocus: PlaybackAudioFocus
 
     /** Thanh nhắc tiếp tục xem; null khi không hiện. */
     private var resumeBanner: View? = null
@@ -137,7 +136,6 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         resumeStore = ResumeStore(this)
-        audioFocus = PlaybackAudioFocus(this) { webView.evaluateJavascript(PAUSE_JS, null) }
         webView.addJavascriptInterface(PlaybackBridge(), "AndroidPlayback")
         webView.addJavascriptInterface(QueueBridge(), "AndroidQueue")
         webView.webViewClient = object : WebViewClient() {
@@ -571,8 +569,6 @@ class MainActivity : Activity() {
         isPlaying = playing
         if (playing) hideResumeBanner()
         Log.i(TAG_PLAYBACK, "state=$playing")
-        // TẠM THỜI (thử nghiệm): không xin audio focus ở đây. Chromium tự xin focus, listener của app nhận LOSS và tự pause.
-        // if (playing) audioFocus.acquire() else audioFocus.release()
         val serviceIntent = Intent(this, PlaybackService::class.java)
         if (playing) {
             // Phát lại trong vòng chờ thì hủy lệnh dừng; tránh dừng rồi bật lại service.
@@ -739,12 +735,6 @@ class MainActivity : Activity() {
   }, 2000);
 })();"""
 
-        /**
-         * Tạm dừng khi mất audio focus (ticket #18). Đặt cờ người dùng tạm dừng trước để hook nền
-         * không tự phát lại; sau cuộc gọi video chỉ phát khi người dùng bấm Play.
-         */
-        const val PAUSE_JS =
-            "(function(){var v=document.querySelector('video');if(v&&!v.paused){window.__ytTabletUserPaused=true;v.pause();}})();"
 
         /** Tua tới vị trí đã lưu (giây) rồi phát; chờ tới khi có thẻ video. */
         const val SEEK_JS_TEMPLATE = "(function(p){var tries=0;function go(){var v=document.querySelector('video');" +

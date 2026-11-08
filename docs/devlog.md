@@ -1,5 +1,24 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [08/11/2026 - 11:56] - Task: Sửa video không phát (audio focus tự pause) và gỡ PlaybackAudioFocus (Cấp: S)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/test/java/com/meomuc/youtubeintablet/`
+  - File tạo/sửa: `MainActivity.kt` — bỏ `audioFocus` (lateinit, khởi tạo, gọi acquire/release trong `setPlaying`) và hằng `PAUSE_JS`; `PlaybackAudioFocus.kt` — xóa; `AudioFocusRulesTest.kt` — xóa; `CHANGELOG.md` — mục Fixed; `docs/devlog.md` — mục này.
+  - Dependencies: Không.
+* **2. Quyết định cốt lõi:**
+  - Nguyên nhân: Chromium (WebView) xin audio focus khi bắt đầu phát, listener của app nhận `AUDIOFOCUS_LOSS` từ chính app, gọi `release()` và `PAUSE_JS` nên video bị pause ngay. Lỗi không phụ thuộc mạng (tái hiện trên Wi-Fi emulator); chưa thử 5G.
+  - Chọn để WebView tự quản lý focus, không giữ focus từ app. Hệ quả: tính năng pause khi mất focus của ticket #18 không còn từ app; chưa kiểm chứng Chromium có tự pause khi có cuộc gọi hay không.
+  - Không thể "bỏ qua LOSS do chính app gây ra": khi Chromium chiếm focus, app mất khả năng nhận sự kiện focus.
+* **3. Kiểm chứng:**
+  - Trước sửa: `video.readyState=4`, `play()` resolve nhưng `paused=true` sau vài giây; logcat có `requestAudioFocus` từ AudioFocusDelegate rồi `abandonAudioFocus` từ `PlaybackAudioFocus`.
+  - Sau sửa (emulator, APK debug cuối): `paused=false`, `currentTime` tăng 336.47 → 341.53 trong 5 giây, `error=null`.
+  - `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --rerun`: BUILD SUCCESSFUL; 66 test, 0 failures, 0 errors.
+  - Chưa kiểm chứng: trên box trong xe và trên 5G; pause khi có cuộc gọi.
+* **4. Rủi ro / cần review:**
+  - Mất pause khi mất focus từ app (xem quyết định trên).
+  - Bản release `v0.1.0-debug` trên GitHub chứa lỗi phát video; APK mới chưa được publish.
+  - Đính chính: mục trước ghi 62 test; con số đúng của lần chạy đó là 70 (10 class test, gồm `AudioFocusRulesTest` 4 test đã xóa ở mục này).
+
 ### [08/11/2026 - 11:43] - Task: Ignore thư mục nháp/worktree, push và publish bản build debug v0.1.0-debug (Cấp: S)
 * **1. Thay đổi:**
   - Module/thư mục: thư mục gốc, `.gitignore`, GitHub Release `v0.1.0-debug`

@@ -4,6 +4,9 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 
 ## [Unreleased]
 
+### Fixed
+- Video không phát được (phát xong bị tạm dừng ngay): app không còn tự xin audio focus, để WebView tự quản lý. Đã kiểm chứng trên emulator; chưa kiểm chứng trên box trong xe.
+
 ### Added
 - Mở youtube.com toàn màn hình trong app, không có thanh địa chỉ hay tab.
 - Nút Back quay lại trang trước; khi hết lịch sử thì thoát app.
