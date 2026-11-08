@@ -24,6 +24,8 @@ import android.util.Rational
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -83,7 +85,7 @@ class MainActivity : Activity() {
     /** Lựa chọn hiển thị hiện tại; đọc từ SharedPreferences khi mở app (ticket #10). */
     private var displayOptions = DisplayOptions()
     private lateinit var resumeStore: ResumeRepository
-    /** Script JS tĩnh, đọc từ assets/js khi tạo Activity (Bước 1). */
+    /** Script JS tĩnh, đọc từ assets/js khi tạo Activity. */
     private lateinit var toggleJs: String
     private lateinit var playbackHookJs: String
 
@@ -116,6 +118,9 @@ class MainActivity : Activity() {
     /** Trạng thái phát do trang báo qua cầu JavaScript; dùng cho service và PiP. */
     private var isPlaying = false
 
+    /** Phiên MediaSession nhận nút vô lăng và điều khiển hệ thống (kế hoạch điều khiển vô lăng). */
+    private lateinit var mediaSession: MediaSession
+
     private val toggleReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             webView.evaluateJavascript(toggleJs, null)
@@ -146,6 +151,8 @@ class MainActivity : Activity() {
         playbackHookJs = JsAssets.read(this, "playback_hook.js")
         webView.addJavascriptInterface(PlaybackBridge(), "AndroidPlayback")
         webView.addJavascriptInterface(QueueBridge(), "AndroidQueue")
+        setupMediaSession()
+        requestNotificationPermission()
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 // Chỉ tải web trong WebView. Scheme lạ (intent://, market://) bị bỏ qua
@@ -358,6 +365,7 @@ class MainActivity : Activity() {
         setPlaying(false)
         unregisterReceiver(toggleReceiver)
         adEngine?.close()
+        mediaSession.release()
         adEngine = null
         super.onDestroy()
     }
@@ -618,6 +626,56 @@ class MainActivity : Activity() {
                 // Cập nhật nút phát/tạm dừng trong PiP nếu đang ở PiP.
                 if (isInPictureInPictureMode) setPictureInPictureParams(buildPipParams())
             }
+            PlaybackEffect.UPDATE_MEDIA_SESSION -> updateMediaSession(isPlaying)
+        }
+    }
+
+    /** Đăng ký lệnh từ MediaSession (nút next/previous trên vô lăng, điều khiển hệ thống) và chạy trên trang. */
+    private fun setupMediaSession() {
+        mediaSession = MediaSession(this, "VF8tube")
+        mediaSession.setCallback(object : MediaSession.Callback() {
+            override fun onPlay() = runMediaCommand(MediaCommand.PLAY)
+            override fun onPause() = runMediaCommand(MediaCommand.PAUSE)
+            override fun onStop() = runMediaCommand(MediaCommand.PAUSE)
+            override fun onSkipToNext() = skipToNext()
+            override fun onSkipToPrevious() = runMediaCommand(MediaCommand.PREVIOUS)
+        })
+        mediaSession.isActive = true
+        updateMediaSession(isPlaying)
+    }
+
+    private fun runMediaCommand(command: MediaCommand) {
+        webView.evaluateJavascript(MediaSessionRules.scriptFor(command), null)
+    }
+
+    /**
+     * Nút next: ưu tiên mục đầu hàng đợi (khi hàng đợi đang bật); không có thì bấm nút tiếp theo của YouTube.
+     * Trang xem mobile không có nút tiếp theo khi không có danh sách phát, khi đó nút không làm gì.
+     */
+    private fun skipToNext() {
+        if (displayOptions.showQueue && queue.peekHead() != null) playNextFromQueue()
+        else runMediaCommand(MediaCommand.NEXT)
+    }
+
+    /** Báo trạng thái phát cho hệ thống; nút vô lăng chỉ được chuyển tới app khi phiên có trạng thái. */
+    private fun updateMediaSession(playing: Boolean) {
+        val actions = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
+            PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP or
+            PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS
+        val state = if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
+        mediaSession.setPlaybackState(
+            PlaybackState.Builder()
+                .setActions(actions)
+                .setState(state, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
+                .build()
+        )
+    }
+
+    /** Android 13 trở lên: xin quyền thông báo để thông báo phát nền hiện được. */
+    private fun requestNotificationPermission() {
+        val permission = "android.permission.POST_NOTIFICATIONS"
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(permission), REQUEST_NOTIFICATIONS)
         }
     }
 
@@ -676,6 +734,7 @@ class MainActivity : Activity() {
         const val KEY_QUEUE_ITEMS = "items"
         const val MAX_TITLE_CHARS = 200
         const val QUEUE_GAP_DP = 12
+        const val REQUEST_NOTIFICATIONS = 1001
 
         /** Bật/tắt khả năng hàng đợi trên trang (ticket #13, #14). */
         fun queueFlagJs(on: Boolean) =

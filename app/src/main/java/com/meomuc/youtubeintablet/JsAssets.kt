@@ -2,7 +2,7 @@ package com.meomuc.youtubeintablet
 
 import android.content.Context
 
-/** Đọc script JS tĩnh đóng gói trong assets/js (Bước 1: tách JS khỏi mã Kotlin). */
+/** Đọc script JS tĩnh đóng gói trong assets/js. */
 object JsAssets {
 
     /** Trả về nội dung của `assets/js/<name>`, UTF-8. */

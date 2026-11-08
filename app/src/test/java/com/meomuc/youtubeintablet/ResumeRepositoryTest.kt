@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Bước 2: lưu vị trí xem dở qua interface thuần, kiểm thử không cần Android. */
+/** Lưu vị trí xem dở qua interface thuần, kiểm thử không cần Android. */
 class ResumeRepositoryTest {
 
     private val id = "dQw4w9WgXcQ"
@@ -14,16 +14,16 @@ class ResumeRepositoryTest {
 
     @Test
     fun sanitizeLoadedAcceptsValidStoredValues() {
-        val point = ResumeRules.sanitizeLoaded(id, "Title", 12_000L)
+        val point = ResumeRules.sanitizeLoaded(StoredResume(id, "Title", 12_000L))
         assertEquals(ResumePoint(id, "Title", 12_000L), point)
     }
 
     @Test
     fun sanitizeLoadedRejectsMissingOrBadValues() {
-        assertNull(ResumeRules.sanitizeLoaded(null, "T", 1L))
-        assertNull(ResumeRules.sanitizeLoaded("bad id!", "T", 1L))
-        assertNull(ResumeRules.sanitizeLoaded(id, null, 1L))
-        assertNull(ResumeRules.sanitizeLoaded(id, "T", -1L))
+        assertNull(ResumeRules.sanitizeLoaded(StoredResume(null, "T", 1L)))
+        assertNull(ResumeRules.sanitizeLoaded(StoredResume("bad id!", "T", 1L)))
+        assertNull(ResumeRules.sanitizeLoaded(StoredResume(id, null, 1L)))
+        assertNull(ResumeRules.sanitizeLoaded(StoredResume(id, "T", -1L)))
     }
 
     @Test

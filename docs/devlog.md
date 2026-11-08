@@ -1,5 +1,24 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [08/11/2026 - 12:29] - Task: Làm nốt việc còn lại: MediaSession vô lăng, quyền thông báo, dọn code, bảng hàng đợi (Cấp: M)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/test/...`, `app/src/main/AndroidManifest.xml`, `CHANGELOG.md`
+  - File tạo: `MediaSessionRules.kt` (enum `MediaCommand`, `scriptFor`), `MaxHeightScrollView.kt`, `MediaSessionRulesTest.kt`.
+  - File sửa: `MainActivity.kt` — `MediaSession` (callback play/pause/stop/next/previous), `updateMediaSession`, `skipToNext`, xin `POST_NOTIFICATIONS` (API 33+), giải phóng session trong `onDestroy`; `PlaybackStateRules.kt` — thêm hiệu ứng `UPDATE_MEDIA_SESSION`; `ResumeRules.kt`/`ResumeStore.kt` — `StoredResume` gom ba tham số; `QueuePanel.kt` — danh sách cao theo nội dung, tối đa 70%; bỏ các ghi chú "Bước N" trong KDoc.
+  - Dependencies: không thêm.
+* **2. Quyết định cốt lõi:**
+  - Next: ưu tiên mục đầu hàng đợi khi hàng đợi bật; không có thì bấm `.ytp-next-button`. Trang xem mobile không có nút này khi không có danh sách phát, nên không có mục nào thì next không làm gì.
+  - Previous: quá 3 giây thì tua về đầu, gần đầu thì `history.back()`.
+  - Không có play/pause trên vô lăng xe (xác nhận từ ảnh); play/pause vẫn đăng ký trong MediaSession cho nguồn khác.
+* **3. Kiểm chứng:**
+  - `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --rerun`: BUILD SUCCESSFUL; 81 test, 0 failures, 0 errors.
+  - Emulator: phiên MediaSession active, PLAYING, `actions=567`; `KEYCODE_MEDIA_PAUSE` → log `state=false`; `KEYCODE_MEDIA_NEXT` → URL đổi sang mục đầu hàng đợi; `KEYCODE_MEDIA_PREVIOUS` khi đang phát → `currentTime` về gần 0, không đổi video; quyền thông báo được cấp (`granted=true`).
+  - Chưa kiểm chứng: nút vô lăng thật trên box; app ở nền khi bấm nút; hiển thị điều khiển trên màn hình xe.
+* **4. Rủi ro / cần review:**
+  - Lần cài đầu, dialog xin quyền thông báo hiện trên màn hình; người dùng từ chối thì app vẫn chạy nhưng thông báo phát nền không hiện.
+  - Lệnh previous khi video vừa quá 3 giây chỉ tua về đầu; nếu muốn chuyển video trước đó cần lịch sử riêng.
+
+### [08/11/2026 - 12:17] - Task: Thiết kế lại giao diện native theo Material 3, icon Phosphor (Cấp: L)
 ### [08/11/2026 - 12:17] - Task: Thiết kế lại giao diện native theo Material 3, icon Phosphor (Cấp: L)
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`, `app/src/main/res/`, thư mục gốc (`DESIGN.md`), `design-system/`, `docs/`

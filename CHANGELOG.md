@@ -4,7 +4,12 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 
 ## [Unreleased]
 
+### Added
+- Nút vô lăng và điều khiển hệ thống: next (mục đầu hàng đợi, hoặc nút tiếp theo của YouTube), previous (tua về đầu hoặc quay lại trang trước), pause. Hỗ trợ khi app ở nền qua MediaSession.
+- Xin quyền thông báo trên Android 13 để thông báo phát nền hiện được.
+
 ### Changed
+- Bảng hàng đợi cao theo số mục, tối đa 70% màn hình.
 - Đổi tên app thành "VF8 tube" và thiết kế icon mới: tam giác phát trắng trên nền than chì (icon adaptive, có chế độ đơn sắc cho Android 13).
 - Giao diện native theo Material 3: bảng hiển thị nhanh và bảng hàng đợi dùng thẻ và công tắc Material; nút nổi và banner tiếp tục xem đổi kiểu; sáng/tối và Dynamic Color theo hệ thống.
 - Icon của app dùng bộ Phosphor thay cho icon hệ thống (nút PiP, thông báo phát nền).

@@ -10,6 +10,13 @@ data class ResumePoint(
     val positionMs: Long,
 )
 
+/** Bản ghi thô đọc từ bộ nhớ, chưa kiểm tra; các trường có thể thiếu. */
+data class StoredResume(
+    val videoId: String?,
+    val title: String?,
+    val positionMs: Long,
+)
+
 /** Quy tắc thuần cho lời nhắc tiếp tục xem; không phụ thuộc Android nên kiểm thử được bằng unit test. */
 object ResumeRules {
     private val VIDEO_ID_PATTERN = Regex("^[A-Za-z0-9_-]{11}$")
@@ -36,9 +43,11 @@ object ResumeRules {
     fun shouldPrompt(point: ResumePoint?): Boolean = point != null && point.positionMs >= MIN_PROMPT_MS
 
     /** Chuẩn hóa dữ liệu đọc lại từ bộ nhớ; trả null nếu thiếu hoặc hỏng. */
-    fun sanitizeLoaded(videoId: String?, title: String?, positionMs: Long): ResumePoint? {
-        if (videoId == null || title == null || !isValidVideoId(videoId) || positionMs < 0) return null
-        return ResumePoint(videoId, title, positionMs)
+    fun sanitizeLoaded(stored: StoredResume): ResumePoint? {
+        val videoId = stored.videoId
+        val title = stored.title
+        if (videoId == null || title == null || !isValidVideoId(videoId) || stored.positionMs < 0) return null
+        return ResumePoint(videoId, title, stored.positionMs)
     }
 
     /**

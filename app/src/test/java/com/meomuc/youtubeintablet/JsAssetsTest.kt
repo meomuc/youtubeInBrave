@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Kiểm tra các script JS tĩnh đã được tách sang assets/js (Bước 1 của kế hoạch kiến trúc). */
+/** Kiểm tra các script JS tĩnh đã được tách sang assets/js. */
 class JsAssetsTest {
 
     private val dir = File("src/main/assets/js")

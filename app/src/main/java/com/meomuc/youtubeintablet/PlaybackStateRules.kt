@@ -1,6 +1,6 @@
 package com.meomuc.youtubeintablet
 
-/** Việc app phải làm khi trạng thái phát đổi (Bước 3: tách khỏi MainActivity). */
+/** Việc app phải làm khi trạng thái phát đổi, tách khỏi MainActivity. */
 enum class PlaybackEffect {
     /** Ẩn lời nhắc tiếp tục xem vì video đã phát. */
     HIDE_RESUME_BANNER,
@@ -10,6 +10,8 @@ enum class PlaybackEffect {
     SCHEDULE_STOP,
     /** Cập nhật nút phát/tạm dừng trong PiP nếu đang ở PiP. */
     REFRESH_PIP,
+    /** Cập nhật trạng thái phát cho MediaSession (nút vô lăng, điều khiển hệ thống). */
+    UPDATE_MEDIA_SESSION,
 }
 
 /** Quy tắc thuần: trạng thái phát đổi thì cần làm những việc gì, theo thứ tự nào. */
@@ -19,9 +21,14 @@ object PlaybackStateRules {
     fun effectsFor(wasPlaying: Boolean, playing: Boolean): List<PlaybackEffect> {
         if (wasPlaying == playing) return emptyList()
         return if (playing) {
-            listOf(PlaybackEffect.HIDE_RESUME_BANNER, PlaybackEffect.START_SERVICE, PlaybackEffect.REFRESH_PIP)
+            listOf(
+                PlaybackEffect.HIDE_RESUME_BANNER,
+                PlaybackEffect.START_SERVICE,
+                PlaybackEffect.REFRESH_PIP,
+                PlaybackEffect.UPDATE_MEDIA_SESSION,
+            )
         } else {
-            listOf(PlaybackEffect.SCHEDULE_STOP, PlaybackEffect.REFRESH_PIP)
+            listOf(PlaybackEffect.SCHEDULE_STOP, PlaybackEffect.REFRESH_PIP, PlaybackEffect.UPDATE_MEDIA_SESSION)
         }
     }
 }

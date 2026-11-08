@@ -54,9 +54,11 @@ class QueuePanel(
             addView(header, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(CONTENT_PAD_DP / 2)
             })
+            // Danh sách cao theo số mục, tối đa 70% màn hình; quá thì cuộn.
             addView(
-                ScrollView(context).apply { addView(listContainer) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+                MaxHeightScrollView(context, (context.resources.displayMetrics.heightPixels * MAX_LIST_FRACTION).toInt())
+                    .apply { addView(listContainer) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             )
         }
         val card = MaterialCardView(context).apply {
@@ -67,7 +69,7 @@ class QueuePanel(
         }
         addView(
             card,
-            LayoutParams(dp(CARD_WIDTH_DP), (context.resources.displayMetrics.heightPixels * 0.7f).toInt(), Gravity.BOTTOM or Gravity.START).apply {
+            LayoutParams(dp(CARD_WIDTH_DP), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.START).apply {
                 setMargins(dp(MENU_OFFSET_DP), 0, 0, dp(CARD_BOTTOM_MARGIN_DP))
             }
         )
@@ -217,6 +219,7 @@ class QueuePanel(
         const val MENU_OFFSET_DP = 96
         const val CONTENT_PAD_DP = 24
         const val ROW_MIN_HEIGHT_DP = 56
+        const val MAX_LIST_FRACTION = 0.7f
         const val DRAG_ALPHA = 0.7f
         const val DISABLED_ALPHA = 0.38f
         /** Cỡ chạm tối thiểu theo Material: 48dp; dùng 48dp cho nút và tay cầm. */

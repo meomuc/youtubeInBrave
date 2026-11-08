@@ -9,9 +9,11 @@ class ResumeStore(context: Context) : ResumeRepository {
     override fun load(): ResumePoint? {
         return try {
             ResumeRules.sanitizeLoaded(
-                prefs.getString(KEY_VIDEO_ID, null),
-                prefs.getString(KEY_TITLE, null),
-                prefs.getLong(KEY_POSITION_MS, -1L),
+                StoredResume(
+                    videoId = prefs.getString(KEY_VIDEO_ID, null),
+                    title = prefs.getString(KEY_TITLE, null),
+                    positionMs = prefs.getLong(KEY_POSITION_MS, -1L),
+                )
             )
         } catch (e: RuntimeException) {
             null
