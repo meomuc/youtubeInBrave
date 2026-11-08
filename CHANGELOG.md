@@ -4,6 +4,8 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây. Địn
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-08
+
 ### Added
 - Chạm vào tên một mục trong hàng đợi để phát ngay mục đó; mục chỉ rời hàng đợi khi trang đã tải xong.
 - Nút vô lăng và điều khiển hệ thống: next (mục đầu hàng đợi, hoặc nút tiếp theo của YouTube), previous (tua về đầu hoặc quay lại trang trước), pause. Hỗ trợ khi app ở nền qua MediaSession.
