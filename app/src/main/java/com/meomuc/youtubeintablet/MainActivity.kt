@@ -79,7 +79,7 @@ class MainActivity : Activity() {
     private lateinit var queuePanel: QueuePanel
     /** Lựa chọn hiển thị hiện tại; đọc từ SharedPreferences khi mở app (ticket #10). */
     private var displayOptions = DisplayOptions()
-    private lateinit var resumeStore: ResumeStore
+    private lateinit var resumeStore: ResumeRepository
     /** Script JS tĩnh, đọc từ assets/js khi tạo Activity (Bước 1). */
     private lateinit var toggleJs: String
     private lateinit var playbackHookJs: String

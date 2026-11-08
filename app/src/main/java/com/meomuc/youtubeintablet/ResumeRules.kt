@@ -35,25 +35,57 @@ object ResumeRules {
     }
 
     fun shouldPrompt(point: ResumePoint?): Boolean = point != null && point.positionMs >= MIN_PROMPT_MS
+
+    /** Chuẩn hóa dữ liệu đọc lại từ bộ nhớ; trả null nếu thiếu hoặc hỏng. */
+    fun sanitizeLoaded(videoId: String?, title: String?, positionMs: Long): ResumePoint? {
+        if (videoId == null || title == null || !isValidVideoId(videoId) || positionMs < 0) return null
+        return ResumePoint(videoId, title, positionMs)
+    }
+
+    /** Chỉ xóa lời nhắc khi đúng video đang lưu; video khác kết thúc thì giữ nguyên. */
+    fun shouldClear(stored: ResumePoint?, videoId: String?): Boolean =
+        stored != null && videoId != null && stored.videoId == videoId
+}
+
+/** Nơi lưu vị trí xem dở (Bước 2). Tầng Android triển khai bằng SharedPreferences. */
+interface ResumeRepository {
+    fun load(): ResumePoint?
+    fun save(point: ResumePoint)
+    fun clearIf(videoId: String?)
+}
+
+/** Bản trong bộ nhớ, dùng cho kiểm thử. */
+class InMemoryResumeRepository : ResumeRepository {
+    private var point: ResumePoint? = null
+
+    override fun load(): ResumePoint? = point
+
+    override fun save(point: ResumePoint) {
+        this.point = point
+    }
+
+    override fun clearIf(videoId: String?) {
+        if (ResumeRules.shouldClear(point, videoId)) point = null
+    }
 }
 
 /** Lưu một vị trí xem dở bằng SharedPreferences cục bộ (không dùng tài khoản). */
-class ResumeStore(context: Context) {
+class ResumeStore(context: Context) : ResumeRepository {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun load(): ResumePoint? {
+    override fun load(): ResumePoint? {
         return try {
-            val id = prefs.getString(KEY_VIDEO_ID, null)
-            val title = prefs.getString(KEY_TITLE, null)
-            val positionMs = prefs.getLong(KEY_POSITION_MS, -1L)
-            if (id == null || title == null || !ResumeRules.isValidVideoId(id) || positionMs < 0) null
-            else ResumePoint(id, title, positionMs)
+            ResumeRules.sanitizeLoaded(
+                prefs.getString(KEY_VIDEO_ID, null),
+                prefs.getString(KEY_TITLE, null),
+                prefs.getLong(KEY_POSITION_MS, -1L),
+            )
         } catch (e: RuntimeException) {
             null
         }
     }
 
-    fun save(point: ResumePoint) {
+    override fun save(point: ResumePoint) {
         prefs.edit()
             .putString(KEY_VIDEO_ID, point.videoId)
             .putString(KEY_TITLE, point.title)
@@ -62,8 +94,8 @@ class ResumeStore(context: Context) {
     }
 
     /** Xóa lời nhắc khi đúng video đó đã xem hết; video khác kết thúc thì giữ nguyên. */
-    fun clearIf(videoId: String?) {
-        if (videoId != null && prefs.getString(KEY_VIDEO_ID, null) == videoId) {
+    override fun clearIf(videoId: String?) {
+        if (ResumeRules.shouldClear(load(), videoId)) {
             prefs.edit().clear().apply()
         }
     }
