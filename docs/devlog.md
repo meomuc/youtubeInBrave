@@ -1,5 +1,24 @@
 # Devlog — nhật ký kỹ thuật cho AI Architect
 
+### [08/11/2026 - 16:02] - Task: Sửa tiếng đứt và video tự dừng trong PiP; gỡ log chẩn đoán (Cấp: M)
+* **1. Thay đổi:**
+  - Module/thư mục: `app/src/main/assets/js/`, `app/src/main/java/com/meomuc/youtubeintablet/`
+  - File sửa: `playback_hook.js` — chặn `HTMLMediaElement.pause()` khi `__ytTabletPip` bật và người dùng không bấm dừng; giới hạn tự `play()` ở nền còn 3 lần trong 2 giây; bỏ toàn bộ log chẩn đoán. `MainActivity.kt` — khi đổi trạng thái PiP đặt `window.__ytTabletPip`, và tắt cờ nền khi vào PiP; bỏ `DiagLog`, `debugLog`. `CHANGELOG.md` — mục Fixed.
+  - File xóa: `DiagLog.kt` (log chẩn đoán tạm thời, đã commit ở `c37fb55`).
+  - Dependencies: Không.
+* **2. Quyết định cốt lõi:**
+  - Nguyên nhân (xác nhận bằng log có nhãn nguồn): YouTube tự gọi `pause()` trong `base.js` ngay khi vào PiP và sau mỗi lần phát, không phải Chromium hay hệ thống (không có sự kiện pause `NATIVE` nào). Trong PiP người dùng không bấm được điều khiển của YouTube, nên mọi pause của YouTube được coi là không mong muốn.
+  - Trước đó app còn ép `play()` lại mỗi khi bị pause ở nền, tạo vòng pause/play ~0,2 giây làm đứt tiếng. Cờ nền nay tắt khi vào PiP, và có giới hạn số lần ép phát.
+  - Nút phát/dừng của app (`toggle.js`, `MediaSessionRules`) vẫn dừng được vì đặt `__ytTabletUserPaused` trước khi gọi `pause()`.
+* **3. Kiểm chứng:**
+  - Log trước khi chặn pause (APK chẩn đoán 15:52, phiên 15:56): YouTube gọi `pause()` ngay khi vào PiP và sau mỗi lần phát (`g.fZ.pause` trong `base.js`); không có pause `NATIVE`.
+  - Sau khi chặn pause (APK 15:59): người dùng xác nhận hết lỗi. Chưa có file log của bản này.
+  - `./gradlew :app:testDebugUnitTest :app:assembleDebug --rerun-tasks` (dùng init script đưa thư mục build ra ngoài OneDrive): BUILD SUCCESSFUL; 81 test, 0 failures, 0 errors.
+  - Chưa kiểm chứng: PiP trên box Carlinkit; quảng cáo và kết thúc video khi đang ở PiP (lệnh pause của YouTube bị chặn có thể ảnh hưởng).
+* **4. Rủi ro / cần review:**
+  - Nếu trang tải lại khi đang ở PiP, `__ytTabletPip` mất giá trị cho đến lần đổi trạng thái PiP tiếp theo.
+  - Thư mục `app/build` bị OneDrive hoặc Windows Defender khóa khi build; build cần dùng thư mục output khác (init script trong scratchpad).
+
 ### [08/11/2026 - 12:56] - Task: Sửa app thoát khi thao tác hàng đợi; chọn video để phát từ hàng đợi (Cấp: M)
 * **1. Thay đổi:**
   - Module/thư mục: `app/src/main/java/com/meomuc/youtubeintablet/`

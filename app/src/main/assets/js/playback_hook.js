@@ -1,8 +1,16 @@
 (function(){
   if (window.__ytTabletHooked) return;
   window.__ytTabletHooked = true;
-  // Log chẩn đoán (DiagLog): không làm gì nếu cầu nối chưa có.
-  function dlog(m){ try { AndroidPlayback.debugLog(m); } catch (e) {} }
+  // Trong PiP người dùng không thể bấm điều khiển của YouTube, nên mọi lệnh pause của YouTube bị chặn.
+  // Nút của app (toggle.js, MediaSessionRules) đặt __ytTabletUserPaused trước khi pause, nên vẫn được phép.
+  try {
+    var mediaProto = HTMLMediaElement.prototype;
+    var origPause = mediaProto.pause;
+    mediaProto.pause = function(){
+      if (this.tagName === 'VIDEO' && window.__ytTabletPip && !window.__ytTabletUserPaused) return;
+      return origPause.apply(this, arguments);
+    };
+  } catch (e) {}
   // YouTube tự tạm dừng khi trang bị ẩn. Giả lập trang luôn hiển thị để video tiếp tục khi xuống nền.
   try {
     Object.defineProperty(document, 'hidden', {configurable: true, get: function(){ return false; }});
@@ -11,10 +19,16 @@
   document.addEventListener('visibilitychange', function(e){ e.stopImmediatePropagation(); }, true);
   // Khi app xuống nền, WebView có thể tự tạm dừng video. Nếu không phải do người dùng bấm tạm dừng
   // (cờ __ytTabletUserPaused từ nút PiP), phát lại ngay.
+  // Giới hạn: tối đa 3 lần tự phát lại trong 2 giây. Nếu video bị pause liên tục thì dừng ép phát,
+  // tránh vòng pause/play làm đứt tiếng (log PiP cho thấy vòng lặp ~0,2 giây mỗi lần).
+  var autoResumeTimes = [];
   document.addEventListener('pause', function(e){
     var v = e.target;
     if (window.__ytTabletBg && !window.__ytTabletUserPaused && v && v.tagName === 'VIDEO') {
-      dlog('bg auto-resume t=' + v.currentTime.toFixed(2));
+      var now = Date.now();
+      autoResumeTimes = autoResumeTimes.filter(function(t){ return now - t < 2000; });
+      if (autoResumeTimes.length >= 3) return;
+      autoResumeTimes.push(now);
       v.play().catch(function(){});
     }
   }, true);
@@ -28,14 +42,6 @@
     AndroidPlayback.onState(playing);
   }
   ['play', 'playing', 'pause', 'ended'].forEach(function(e){ document.addEventListener(e, report, true); });
-  // Log chẩn đoán: mọi sự kiện của thẻ video kèm vị trí phát và trạng thái bộ đệm.
-  ['play', 'playing', 'pause', 'waiting', 'stalled', 'ended', 'seeking', 'seeked', 'error'].forEach(function(t){
-    document.addEventListener(t, function(e){
-      var v = e.target;
-      if (!v || v.tagName !== 'VIDEO') return;
-      dlog(t + ' t=' + v.currentTime.toFixed(2) + ' rs=' + v.readyState + ' bg=' + !!window.__ytTabletBg + ' hidden=' + document.hidden);
-    }, true);
-  });
   // Ticket #16: ghi vị trí mỗi 5 giây khi đang phát, và ngay khi tạm dừng hoặc kết thúc.
   function currentVideoId(){
     try { return new URL(location.href).searchParams.get('v'); } catch (e) { return null; }

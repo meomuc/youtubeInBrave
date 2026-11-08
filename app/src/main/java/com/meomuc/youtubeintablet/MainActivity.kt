@@ -129,7 +129,6 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DiagLog.start(this)
         // Material You (Android 12+): lấy bảng màu từ hình nền; máy cũ dùng bảng màu tĩnh của theme.
         DynamicColors.applyToActivityIfAvailable(this)
 
@@ -344,13 +343,11 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         super.onPause()
-        DiagLog.log("activity onPause (pip=$isInPictureInPictureMode)")
         webView.evaluateJavascript(backgroundFlagJs(true), null)
     }
 
     override fun onResume() {
         super.onResume()
-        DiagLog.log("activity onResume (pip=$isInPictureInPictureMode)")
         webView.evaluateJavascript(backgroundFlagJs(false), null)
     }
 
@@ -363,7 +360,11 @@ class MainActivity : Activity() {
     /** Ẩn nút PiP trong app khi đã ở cửa sổ PiP (nút này sẽ hiện trong cửa sổ nhỏ). */
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        DiagLog.log("PiP=$isInPictureInPictureMode")
+        // Trong cửa sổ PiP video vẫn hiển thị, không cần ép phát ở nền. onPause (chạy trước callback này)
+        // đã bật cờ nền, nên tắt lại ngay khi vào PiP để không lặp pause/play.
+        if (isInPictureInPictureMode) webView.evaluateJavascript(backgroundFlagJs(false), null)
+        // Trang chặn các lệnh pause của YouTube khi ở PiP (xem playback_hook.js).
+        webView.evaluateJavascript("window.__ytTabletPip=$isInPictureInPictureMode;", null)
         pipButton.visibility = if (isInPictureInPictureMode) View.GONE else View.VISIBLE
         // Cửa sổ PiP nhỏ: ẩn nút ☰ và đóng bảng nếu đang mở.
         menuButton.visibility = pipButton.visibility
@@ -575,12 +576,6 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun onState(playing: Boolean) {
             runOnUiThread { setPlaying(playing) }
-        }
-
-        /** Log chẩn đoán từ trang (DiagLog). Gọi từ luồng WebView. */
-        @JavascriptInterface
-        fun debugLog(message: String) {
-            DiagLog.log("web: $message")
         }
 
         /** Ghi vị trí định kỳ khi đang phát (ticket #16). */
